@@ -62,6 +62,17 @@ export default function ProjectDetailScreen() {
   const [reportData, setReportData] = useState<any>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [pdfGenerating, setPdfGenerating] = useState(false);
+  
+  // Media state (photos & videos)
+  const [mediaItems, setMediaItems] = useState<any[]>([]);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  
+  // Share state
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [technicians, setTechnicians] = useState<any[]>([]);
+  const [selectedTechs, setSelectedTechs] = useState<string[]>([]);
+  const [shareMessage, setShareMessage] = useState('');
+  const [sharing, setSharing] = useState(false);
 
   const fetchDetails = async () => {
     try {
@@ -278,22 +289,186 @@ export default function ProjectDetailScreen() {
       base64: true,
     });
 
-    if (!result.canceled && result.assets[0].base64) {
+    if (!result.canceled && result.assets[0]) {
       try {
-        await fetch(`${API_URL}/api/photos`, {
+        await fetch(`${API_URL}/api/media`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             project_id: id,
             equipment_id: selectedEquipment?.id,
-            image_data: `data:image/jpeg;base64,${result.assets[0].base64}`,
-            photo_type: 'General',
+            media_type: 'photo',
+            media_uri: result.assets[0].base64 
+              ? `data:image/jpeg;base64,${result.assets[0].base64}` 
+              : result.assets[0].uri,
           }),
         });
         fetchDetails();
-        Alert.alert('Success', 'Photo uploaded successfully');
+        fetchMedia();
+        Alert.alert('Success', 'Photo captured successfully');
       } catch (error) {
         Alert.alert('Error', 'Failed to upload photo');
+      }
+    }
+  };
+
+  const recordVideo = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Camera permission is required to record videos');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['videos'],
+      videoMaxDuration: 60,
+      quality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      try {
+        await fetch(`${API_URL}/api/media`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: id,
+            equipment_id: selectedEquipment?.id,
+            media_type: 'video',
+            media_uri: result.assets[0].uri,
+            duration: result.assets[0].duration,
+          }),
+        });
+        fetchDetails();
+        fetchMedia();
+        Alert.alert('Success', 'Video recorded successfully');
+      } catch (error) {
+        Alert.alert('Error', 'Failed to upload video');
+      }
+    }
+  };
+
+  const pickFromGallery = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images', 'videos'],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      const isVideo = asset.type === 'video';
+      try {
+        await fetch(`${API_URL}/api/media`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: id,
+            media_type: isVideo ? 'video' : 'photo',
+            media_uri: asset.base64 
+              ? `data:image/jpeg;base64,${asset.base64}` 
+              : asset.uri,
+            duration: isVideo ? asset.duration : undefined,
+          }),
+        });
+        fetchDetails();
+        fetchMedia();
+        Alert.alert('Success', `${isVideo ? 'Video' : 'Photo'} added successfully`);
+      } catch (error) {
+        Alert.alert('Error', 'Failed to upload media');
+      }
+    }
+  };
+
+  const showMediaOptions = () => {
+    Alert.alert('Add Media', 'Choose an option', [
+      { text: 'Take Photo', onPress: takePhoto },
+      { text: 'Record Video', onPress: recordVideo },
+      { text: 'Choose from Gallery', onPress: pickFromGallery },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const fetchMedia = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/media/${id}`);
+      const data = await response.json();
+      setMediaItems(data.media || []);
+    } catch (error) {
+      console.error('Error fetching media:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (id) fetchMedia();
+  }, [id]);
+
+  // Sharing functions
+  const openShareModal = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/technicians`);
+      const data = await response.json();
+      setTechnicians(data.technicians || []);
+    } catch (error) {
+      console.error('Error fetching technicians:', error);
+    }
+    setShowShareModal(true);
+  };
+
+  const toggleTechSelection = (techId: string) => {
+    setSelectedTechs(prev => 
+      prev.includes(techId) 
+        ? prev.filter(id => id !== techId) 
+        : [...prev, techId]
+    );
+  };
+
+  const shareProject = async () => {
+    if (selectedTechs.length === 0) {
+      Alert.alert('Select Technicians', 'Please select at least one technician to share with');
+      return;
+    }
+    
+    setSharing(true);
+    try {
+      await fetch(`${API_URL}/api/projects/${id}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          technician_ids: selectedTechs,
+          message: shareMessage,
+        }),
+      });
+      setShowShareModal(false);
+      setSelectedTechs([]);
+      setShareMessage('');
+      Alert.alert('Shared!', `Project shared with ${selectedTechs.length} technician(s)`);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to share project');
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const nativeShare = async () => {
+    const project = details?.project;
+    if (!project) return;
+    
+    const shareText = `Blue Box Air - Project: ${project.name}\nClient: ${project.client_name}\nAddress: ${project.address || 'N/A'}\nStatus: ${project.status}\n\nShared from Blue Box Air Technician App`;
+    
+    if (Platform.OS === 'web') {
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: project.name, text: shareText });
+        } catch (e) { /* user cancelled */ }
+      } else {
+        await navigator.clipboard.writeText(shareText);
+        Alert.alert('Copied!', 'Project details copied to clipboard');
+      }
+    } else {
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        // Create a temp text file to share
+        Alert.alert('Share', shareText);
       }
     }
   };
@@ -411,9 +586,14 @@ export default function ProjectDetailScreen() {
         <View style={styles.headerInfo}>
           <Text style={styles.headerNumber}>{project.project_number}</Text>
         </View>
-        <TouchableOpacity style={styles.moreButton} onPress={takePhoto}>
-          <Ionicons name="camera" size={24} color={COLORS.lime} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <TouchableOpacity style={styles.moreButton} onPress={openShareModal}>
+            <Ionicons name="share-social" size={22} color={COLORS.lime} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.moreButton} onPress={showMediaOptions}>
+            <Ionicons name="camera" size={24} color={COLORS.lime} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -778,21 +958,56 @@ export default function ProjectDetailScreen() {
 
         {activeTab === 'photos' && (
           <View style={styles.tabContent}>
-            <View style={styles.photosGrid}>
-              {photos?.map((photo: any, index: number) => (
-                <View key={photo.id || index} style={styles.photoThumb}>
-                  <Ionicons name="image" size={32} color={COLORS.grayDark} />
-                </View>
-              ))}
+            {/* Media Action Bar */}
+            <View style={styles.mediaActionBar}>
+              <TouchableOpacity style={styles.mediaActionBtn} onPress={takePhoto}>
+                <Ionicons name="camera" size={20} color={COLORS.navy} />
+                <Text style={styles.mediaActionBtnText}>Photo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.mediaActionBtn} onPress={recordVideo}>
+                <Ionicons name="videocam" size={20} color={COLORS.navy} />
+                <Text style={styles.mediaActionBtnText}>Video</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.mediaActionBtn} onPress={pickFromGallery}>
+                <Ionicons name="images" size={20} color={COLORS.navy} />
+                <Text style={styles.mediaActionBtnText}>Gallery</Text>
+              </TouchableOpacity>
             </View>
-            {(!photos || photos.length === 0) && (
+
+            {/* Media Grid */}
+            {(mediaItems.length > 0 || (photos && photos.length > 0)) ? (
+              <View style={styles.photosGrid}>
+                {mediaItems.map((item: any, index: number) => (
+                  <View key={item.id || index} style={styles.photoThumb}>
+                    {item.media_type === 'video' ? (
+                      <View style={styles.videoThumbOverlay}>
+                        <Ionicons name="videocam" size={28} color={COLORS.lime} />
+                        {item.duration && (
+                          <Text style={styles.videoDuration}>
+                            {Math.round((item.duration || 0) / 1000)}s
+                          </Text>
+                        )}
+                      </View>
+                    ) : (
+                      <Ionicons name="image" size={28} color={COLORS.lime} />
+                    )}
+                    <Text style={styles.mediaLabel}>
+                      {item.media_type === 'video' ? 'Video' : 'Photo'}
+                    </Text>
+                  </View>
+                ))}
+                {photos?.map((photo: any, index: number) => (
+                  <View key={`photo-${photo.id || index}`} style={styles.photoThumb}>
+                    <Ionicons name="image" size={28} color={COLORS.grayDark} />
+                    <Text style={styles.mediaLabel}>Photo</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
               <View style={styles.emptyState}>
                 <Ionicons name="images-outline" size={40} color={COLORS.grayDark} />
-                <Text style={styles.emptyText}>No photos yet</Text>
-                <TouchableOpacity style={styles.addPhotoBtn} onPress={takePhoto}>
-                  <Ionicons name="camera" size={20} color={COLORS.navy} />
-                  <Text style={styles.addPhotoBtnText}>Take Photo</Text>
-                </TouchableOpacity>
+                <Text style={styles.emptyText}>No media yet</Text>
+                <Text style={styles.emptySubtext}>Capture photos and videos of your work</Text>
               </View>
             )}
           </View>
@@ -862,6 +1077,90 @@ export default function ProjectDetailScreen() {
 
             <TouchableOpacity style={styles.submitButton} onPress={submitServiceLog}>
               <Text style={styles.submitButtonText}>Save Service Log</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Share Project Modal */}
+      <Modal visible={showShareModal} transparent animationType="slide">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Share Project</Text>
+              <TouchableOpacity onPress={() => setShowShareModal(false)}>
+                <Ionicons name="close" size={24} color={COLORS.white} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.shareSubtitle}>
+              Share with Blue Box Air, Inc. team members
+            </Text>
+
+            {/* Native Share Option */}
+            <TouchableOpacity style={styles.nativeShareBtn} onPress={nativeShare}>
+              <Ionicons name="share-outline" size={20} color={COLORS.lime} />
+              <Text style={styles.nativeShareText}>Share via Email / Message</Text>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.grayDark} />
+            </TouchableOpacity>
+
+            <Text style={styles.shareDividerText}>OR assign to team members</Text>
+
+            {/* Technician List */}
+            <ScrollView style={styles.techList} showsVerticalScrollIndicator={false}>
+              {technicians.map((tech) => (
+                <TouchableOpacity
+                  key={tech.id}
+                  style={[
+                    styles.techItem,
+                    selectedTechs.includes(tech.id) && styles.techItemSelected,
+                  ]}
+                  onPress={() => toggleTechSelection(tech.id)}
+                >
+                  <View style={styles.techAvatar}>
+                    <Ionicons name="person" size={20} color={COLORS.lime} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.techName}>{tech.full_name}</Text>
+                    <Text style={styles.techRole}>{tech.title} • {tech.email}</Text>
+                  </View>
+                  <View style={[
+                    styles.techCheckbox,
+                    selectedTechs.includes(tech.id) && styles.techCheckboxChecked,
+                  ]}>
+                    {selectedTechs.includes(tech.id) && (
+                      <Ionicons name="checkmark" size={16} color={COLORS.navy} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Message */}
+            <TextInput
+              style={[styles.modalInput, { marginTop: 12 }]}
+              placeholder="Add a message (optional)"
+              placeholderTextColor={COLORS.grayDark}
+              value={shareMessage}
+              onChangeText={setShareMessage}
+            />
+
+            {/* Share Button */}
+            <TouchableOpacity
+              style={[styles.submitButton, selectedTechs.length === 0 && { opacity: 0.5 }]}
+              onPress={shareProject}
+              disabled={sharing || selectedTechs.length === 0}
+            >
+              {sharing ? (
+                <ActivityIndicator size="small" color={COLORS.navy} />
+              ) : (
+                <Text style={styles.submitButtonText}>
+                  Share with {selectedTechs.length} technician{selectedTechs.length !== 1 ? 's' : ''}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -1593,5 +1892,119 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.navy,
+  },
+  // Media styles
+  mediaActionBar: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  mediaActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: COLORS.lime,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  mediaActionBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.navy,
+  },
+  videoThumbOverlay: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoDuration: {
+    fontSize: 10,
+    color: COLORS.lime,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  mediaLabel: {
+    fontSize: 10,
+    color: COLORS.grayDark,
+    marginTop: 4,
+  },
+  // Share styles
+  shareSubtitle: {
+    fontSize: 13,
+    color: COLORS.gray,
+    marginBottom: 16,
+  },
+  nativeShareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.navyLight,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.lime + '30',
+    marginBottom: 16,
+  },
+  nativeShareText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.lime,
+  },
+  shareDividerText: {
+    fontSize: 12,
+    color: COLORS.grayDark,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  techList: {
+    maxHeight: 240,
+  },
+  techItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 6,
+    backgroundColor: COLORS.navy,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  techItemSelected: {
+    borderColor: COLORS.lime,
+    backgroundColor: COLORS.lime + '10',
+  },
+  techAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.lime + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  techName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  techRole: {
+    fontSize: 11,
+    color: COLORS.grayDark,
+    marginTop: 2,
+  },
+  techCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#2d4a6f',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  techCheckboxChecked: {
+    backgroundColor: COLORS.lime,
+    borderColor: COLORS.lime,
   },
 });

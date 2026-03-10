@@ -94,7 +94,7 @@ class Equipment(BaseModel):
     name: str
     model: Optional[str] = None
     serial_number: Optional[str] = None
-    equipment_type: str = "HVAC"  # HVAC, Chiller, AHU, RTU, etc.
+    equipment_type: str = "Coil Management"  # Coil Management, Chiller, AHU, RTU, etc.
     location: Optional[str] = None
     status: str = "Active"
     last_service_date: Optional[datetime] = None
@@ -171,7 +171,7 @@ def generate_mock_data():
         "email": "john.smith@blueboxair.com",
         "full_name": "John Smith",
         "phone": "(555) 123-4567",
-        "skills": ["HVAC", "Coil Cleaning", "Air Quality"],
+        "skills": ["Coil Management", "Coil Cleaning", "Air Quality"],
         "profile_image": None
     }
     
@@ -182,8 +182,8 @@ def generate_mock_data():
             "id": "proj-001", 
             "salesforce_id": "a0B001", 
             "project_number": "PRJ-2024-001",
-            "name": "Acme Corporate Tower - HVAC Maintenance",
-            "description": "Annual HVAC coil cleaning and maintenance for all 12 floors",
+            "name": "Acme Corporate Tower - Coil Management",
+            "description": "Annual coil cleaning and management for all 12 floors",
             "status": "Active",
             "client_name": "Acme Corporation",
             "address": "123 Main Street, New York, NY 10001",
@@ -239,7 +239,7 @@ def generate_mock_data():
             "salesforce_id": "a0B005", 
             "project_number": "PRJ-2024-005",
             "name": "Downtown Office Complex - Completed",
-            "description": "Full HVAC system cleaning completed",
+            "description": "Full coil system cleaning completed",
             "status": "Completed",
             "client_name": "City Properties LLC",
             "address": "100 Financial District, Boston, MA 02110",
@@ -292,7 +292,105 @@ async def login(credentials: TechnicianLogin):
 @api_router.get("/auth/profile")
 async def get_profile():
     """Get current technician profile"""
+    # Try to get profile from DB first, fallback to mock
+    profile = await db.profiles.find_one({"technician_id": MOCK_DATA["technician"]["id"]})
+    if profile:
+        profile = serialize_doc(profile)
+        return profile
     return MOCK_DATA["technician"]
+
+@api_router.put("/auth/profile")
+async def update_profile(profile_data: dict):
+    """Update technician profile"""
+    technician_id = MOCK_DATA["technician"]["id"]
+    
+    allowed_fields = ["full_name", "email", "phone", "skills", "profile_photo", "title", "company"]
+    update_data = {k: v for k, v in profile_data.items() if k in allowed_fields}
+    update_data["technician_id"] = technician_id
+    update_data["updated_at"] = datetime.utcnow().isoformat()
+    
+    result = await db.profiles.update_one(
+        {"technician_id": technician_id},
+        {"$set": update_data},
+        upsert=True
+    )
+    
+    # Merge with mock data for complete profile
+    merged = {**MOCK_DATA["technician"], **update_data}
+    return {"success": True, "profile": merged}
+
+# ============ Media (Photos & Videos) ============
+
+@api_router.post("/media")
+async def upload_media(media_data: dict):
+    """Upload photo or video media to a project"""
+    media = {
+        "id": f"media-{uuid.uuid4().hex[:8]}",
+        "project_id": media_data.get("project_id"),
+        "equipment_id": media_data.get("equipment_id"),
+        "media_type": media_data.get("media_type", "photo"),  # photo or video
+        "media_uri": media_data.get("media_uri", ""),
+        "thumbnail": media_data.get("thumbnail", ""),
+        "caption": media_data.get("caption", ""),
+        "duration": media_data.get("duration"),  # for videos
+        "technician_id": MOCK_DATA["technician"]["id"],
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    
+    await db.media.insert_one(media)
+    media = serialize_doc(media)
+    return {"success": True, "media": media}
+
+@api_router.get("/media/{project_id}")
+async def get_project_media(project_id: str):
+    """Get all media (photos & videos) for a project"""
+    media = await db.media.find({"project_id": project_id}).sort("created_at", -1).to_list(200)
+    media = serialize_doc(media)
+    return {"media": media}
+
+@api_router.delete("/media/{media_id}")
+async def delete_media(media_id: str):
+    """Delete a media item"""
+    await db.media.delete_one({"id": media_id})
+    return {"success": True}
+
+# ============ Project Sharing ============
+
+@api_router.get("/technicians")
+async def list_technicians():
+    """List all Blue Box Air technicians for sharing"""
+    # Mock list of technicians in the company
+    technicians = [
+        {"id": "tech-001", "full_name": "John Smith", "email": "john@blueboxair.com", "title": "Lead Technician", "skills": ["Coil Cleaning", "Air Quality"]},
+        {"id": "tech-002", "full_name": "Sarah Johnson", "email": "sarah@blueboxair.com", "title": "Senior Technician", "skills": ["Coil Management", "Diagnostics"]},
+        {"id": "tech-003", "full_name": "Mike Davis", "email": "mike@blueboxair.com", "title": "Technician", "skills": ["Installation", "Repair"]},
+        {"id": "tech-004", "full_name": "Emily Chen", "email": "emily@blueboxair.com", "title": "Technician", "skills": ["Coil Cleaning", "Maintenance"]},
+        {"id": "tech-005", "full_name": "Carlos Rodriguez", "email": "carlos@blueboxair.com", "title": "Field Supervisor", "skills": ["Management", "Quality Assurance"]},
+    ]
+    return {"technicians": technicians}
+
+@api_router.post("/projects/{project_id}/share")
+async def share_project(project_id: str, share_data: dict):
+    """Share a project with other technicians"""
+    share_record = {
+        "id": f"share-{uuid.uuid4().hex[:8]}",
+        "project_id": project_id,
+        "shared_by": MOCK_DATA["technician"]["id"],
+        "shared_with": share_data.get("technician_ids", []),
+        "message": share_data.get("message", ""),
+        "shared_at": datetime.utcnow().isoformat(),
+    }
+    
+    await db.shares.insert_one(share_record)
+    share_record = serialize_doc(share_record)
+    return {"success": True, "share": share_record}
+
+@api_router.get("/projects/{project_id}/shares")
+async def get_project_shares(project_id: str):
+    """Get all share records for a project"""
+    shares = await db.shares.find({"project_id": project_id}).to_list(100)
+    shares = serialize_doc(shares)
+    return {"shares": shares}
 
 # ============ Salesforce Integration Routes ============
 
