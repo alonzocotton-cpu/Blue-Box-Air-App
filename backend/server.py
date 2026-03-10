@@ -171,7 +171,7 @@ def generate_mock_data():
         "email": "john.smith@blueboxair.com",
         "full_name": "John Smith",
         "phone": "(555) 123-4567",
-        "skills": ["Coil Management", "Coil Cleaning", "Air Quality"],
+        "skills": ["Coil Management", "Coil Cleaning", "Air Quality", "Bio-Automation Install"],
         "profile_image": None
     }
     
