@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Svg, { Path, Rect } from 'react-native-svg';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -26,6 +27,44 @@ const COLORS = {
   gray: '#94a3b8',
   grayDark: '#64748b',
 };
+
+// Blue Box Air Logo Component
+const BlueBoxLogo = ({ size = 100 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 100 100">
+    {/* Outer rounded rectangle with white border */}
+    <Rect
+      x="2"
+      y="2"
+      width="96"
+      height="96"
+      rx="18"
+      ry="18"
+      fill={COLORS.navyLight}
+      stroke={COLORS.white}
+      strokeWidth="4"
+    />
+    {/* Left white chevron (pointing right) */}
+    <Path
+      d="M 18 20 L 35 50 L 18 80 L 28 80 L 45 50 L 28 20 Z"
+      fill={COLORS.white}
+    />
+    {/* Right white chevron (pointing left) */}
+    <Path
+      d="M 82 20 L 65 50 L 82 80 L 72 80 L 55 50 L 72 20 Z"
+      fill={COLORS.white}
+    />
+    {/* Left lime chevron (part of X) */}
+    <Path
+      d="M 32 20 L 50 50 L 32 80 L 42 80 L 60 50 L 42 20 Z"
+      fill={COLORS.lime}
+    />
+    {/* Right lime chevron (part of X) */}
+    <Path
+      d="M 68 20 L 50 50 L 68 80 L 58 80 L 40 50 L 58 20 Z"
+      fill={COLORS.lime}
+    />
+  </Svg>
+);
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
@@ -74,15 +113,7 @@ export default function LoginScreen() {
           {/* Logo and Header */}
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              {/* Blue Box X Logo */}
-              <View style={styles.logoInner}>
-                <View style={styles.chevronContainer}>
-                  <View style={[styles.chevron, styles.chevronWhiteLeft]} />
-                  <View style={[styles.chevron, styles.chevronLimeLeft]} />
-                  <View style={[styles.chevron, styles.chevronLimeRight]} />
-                  <View style={[styles.chevron, styles.chevronWhiteRight]} />
-                </View>
-              </View>
+              <BlueBoxLogo size={100} />
             </View>
             <Text style={styles.title}>BLUE BOX</Text>
             <Text style={styles.subtitle}>Air Tech</Text>
@@ -169,47 +200,7 @@ const styles = StyleSheet.create({
     marginBottom: 48,
   },
   logoContainer: {
-    width: 100,
-    height: 100,
-    backgroundColor: COLORS.navyLight,
-    borderRadius: 20,
-    borderWidth: 3,
-    borderColor: COLORS.white,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 20,
-  },
-  logoInner: {
-    width: 70,
-    height: 70,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chevronContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chevron: {
-    width: 12,
-    height: 40,
-    marginHorizontal: -2,
-  },
-  chevronWhiteLeft: {
-    backgroundColor: COLORS.white,
-    transform: [{ skewX: '-15deg' }],
-  },
-  chevronLimeLeft: {
-    backgroundColor: COLORS.lime,
-    transform: [{ skewX: '15deg' }],
-  },
-  chevronLimeRight: {
-    backgroundColor: COLORS.lime,
-    transform: [{ skewX: '-15deg' }],
-  },
-  chevronWhiteRight: {
-    backgroundColor: COLORS.white,
-    transform: [{ skewX: '15deg' }],
   },
   title: {
     fontSize: 32,
