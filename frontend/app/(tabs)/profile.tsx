@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  ImageBackground,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -286,6 +287,15 @@ export default function ProfileScreen() {
           {activeProfileTab === 'resources' ? (
             /* ============ Resources Tab ============ */
             <View style={styles.resourcesContainer}>
+              {/* Background Logo */}
+              <View style={styles.resourcesBgContainer}>
+                <Image
+                  source={{ uri: 'https://customer-assets.emergentagent.com/job_ff19b27f-9c44-4d68-b174-1452a3057557/artifacts/2vycib7s_IMG_2827.jpeg' }}
+                  style={styles.resourcesBgImage}
+                  resizeMode="contain"
+                />
+              </View>
+              
               <Text style={styles.resourcesTitle}>Blue Box Air Resources</Text>
               <Text style={styles.resourcesSubtitle}>Training materials, guides, and reference documents</Text>
 
@@ -307,21 +317,25 @@ export default function ProfileScreen() {
                 </View>
                 {expandedResource === 'training' && (
                   <View style={styles.resourceCardBody}>
-                    <View style={styles.resourceItem}>
-                      <Ionicons name="play-circle" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Coil Cleaning Fundamentals</Text>
+                    <View style={styles.underConstructionBanner}>
+                      <Ionicons name="construct" size={18} color="#f59e0b" />
+                      <Text style={styles.underConstructionText}>Under Construction — Content coming soon</Text>
                     </View>
                     <View style={styles.resourceItem}>
-                      <Ionicons name="play-circle" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Equipment Safety Protocols</Text>
+                      <Ionicons name="play-circle" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Coil Cleaning Fundamentals</Text>
                     </View>
                     <View style={styles.resourceItem}>
-                      <Ionicons name="play-circle" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Pre/Post Service Readings Guide</Text>
+                      <Ionicons name="play-circle" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Equipment Safety Protocols</Text>
                     </View>
                     <View style={styles.resourceItem}>
-                      <Ionicons name="play-circle" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Client Communication Skills</Text>
+                      <Ionicons name="play-circle" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Pre/Post Service Readings Guide</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="play-circle" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Client Communication Skills</Text>
                     </View>
                   </View>
                 )}
@@ -345,21 +359,25 @@ export default function ProfileScreen() {
                 </View>
                 {expandedResource === 'troubleshoot' && (
                   <View style={styles.resourceCardBody}>
-                    <View style={styles.resourceItem}>
-                      <Ionicons name="document-text" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Differential Pressure Issues</Text>
+                    <View style={styles.underConstructionBanner}>
+                      <Ionicons name="construct" size={18} color="#f59e0b" />
+                      <Text style={styles.underConstructionText}>Under Construction — Content coming soon</Text>
                     </View>
                     <View style={styles.resourceItem}>
-                      <Ionicons name="document-text" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Airflow Troubleshooting (FPM)</Text>
+                      <Ionicons name="document-text" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Differential Pressure Issues</Text>
                     </View>
                     <View style={styles.resourceItem}>
-                      <Ionicons name="document-text" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Common Error Codes</Text>
+                      <Ionicons name="document-text" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Airflow Troubleshooting (FPM)</Text>
                     </View>
                     <View style={styles.resourceItem}>
-                      <Ionicons name="document-text" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Escalation Procedures</Text>
+                      <Ionicons name="document-text" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Common Error Codes</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="document-text" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Escalation Procedures</Text>
                     </View>
                   </View>
                 )}
@@ -383,21 +401,25 @@ export default function ProfileScreen() {
                 </View>
                 {expandedResource === 'automation' && (
                   <View style={styles.resourceCardBody}>
-                    <View style={styles.resourceItem}>
-                      <Ionicons name="list" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Installation Checklist</Text>
+                    <View style={styles.underConstructionBanner}>
+                      <Ionicons name="construct" size={18} color="#f59e0b" />
+                      <Text style={styles.underConstructionText}>Under Construction — Content coming soon</Text>
                     </View>
                     <View style={styles.resourceItem}>
-                      <Ionicons name="document-text" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Wiring Diagrams</Text>
+                      <Ionicons name="list" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Installation Checklist</Text>
                     </View>
                     <View style={styles.resourceItem}>
-                      <Ionicons name="document-text" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Sensor Calibration Guide</Text>
+                      <Ionicons name="document-text" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Wiring Diagrams</Text>
                     </View>
                     <View style={styles.resourceItem}>
-                      <Ionicons name="play-circle" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Step-by-Step Install Video</Text>
+                      <Ionicons name="document-text" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Sensor Calibration Guide</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="play-circle" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Step-by-Step Install Video</Text>
                     </View>
                   </View>
                 )}
@@ -421,21 +443,25 @@ export default function ProfileScreen() {
                 </View>
                 {expandedResource === 'pricing' && (
                   <View style={styles.resourceCardBody}>
-                    <View style={styles.resourceItem}>
-                      <Ionicons name="cash" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Standard Service Rates</Text>
+                    <View style={styles.underConstructionBanner}>
+                      <Ionicons name="construct" size={18} color="#f59e0b" />
+                      <Text style={styles.underConstructionText}>Under Construction — Content coming soon</Text>
                     </View>
                     <View style={styles.resourceItem}>
-                      <Ionicons name="calculator" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Cost Estimator Tool</Text>
+                      <Ionicons name="cash" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Standard Service Rates</Text>
                     </View>
                     <View style={styles.resourceItem}>
-                      <Ionicons name="document-text" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Contract Pricing Guide</Text>
+                      <Ionicons name="calculator" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Cost Estimator Tool</Text>
                     </View>
                     <View style={styles.resourceItem}>
-                      <Ionicons name="trending-up" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Upsell Opportunities</Text>
+                      <Ionicons name="document-text" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Contract Pricing Guide</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="trending-up" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Upsell Opportunities</Text>
                     </View>
                   </View>
                 )}
@@ -459,25 +485,29 @@ export default function ProfileScreen() {
                 </View>
                 {expandedResource === 'faqs' && (
                   <View style={styles.resourceCardBody}>
-                    <View style={styles.resourceItem}>
-                      <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>How to submit service reports?</Text>
+                    <View style={styles.underConstructionBanner}>
+                      <Ionicons name="construct" size={18} color="#f59e0b" />
+                      <Text style={styles.underConstructionText}>Under Construction — Content coming soon</Text>
                     </View>
                     <View style={styles.resourceItem}>
-                      <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>What are acceptable pressure ranges?</Text>
+                      <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>How to submit service reports?</Text>
                     </View>
                     <View style={styles.resourceItem}>
-                      <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>How to connect to Salesforce?</Text>
+                      <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>What are acceptable pressure ranges?</Text>
                     </View>
                     <View style={styles.resourceItem}>
-                      <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Scheduling and dispatch process</Text>
+                      <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>How to connect to Salesforce?</Text>
                     </View>
                     <View style={styles.resourceItem}>
-                      <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.lime} />
-                      <Text style={styles.resourceItemText}>Emergency contact protocol</Text>
+                      <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Scheduling and dispatch process</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.grayDark} />
+                      <Text style={[styles.resourceItemText, { color: COLORS.grayDark }]}>Emergency contact protocol</Text>
                     </View>
                   </View>
                 )}
@@ -1082,17 +1112,34 @@ const styles = StyleSheet.create({
   // Resources
   resourcesContainer: {
     padding: 20,
+    position: 'relative',
+    minHeight: 600,
+  },
+  resourcesBgContainer: {
+    position: 'absolute',
+    top: 60,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    opacity: 0.06,
+    zIndex: 0,
+  },
+  resourcesBgImage: {
+    width: 280,
+    height: 280,
   },
   resourcesTitle: {
     fontSize: 22,
     fontWeight: '700',
     color: COLORS.white,
     marginBottom: 4,
+    zIndex: 1,
   },
   resourcesSubtitle: {
     fontSize: 13,
     color: COLORS.grayDark,
     marginBottom: 20,
+    zIndex: 1,
   },
   resourceCard: {
     backgroundColor: COLORS.navyLight,
@@ -1142,6 +1189,24 @@ const styles = StyleSheet.create({
   resourceItemText: {
     fontSize: 14,
     color: COLORS.white,
+    flex: 1,
+  },
+  underConstructionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#f59e0b15',
+    borderWidth: 1,
+    borderColor: '#f59e0b30',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  underConstructionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#f59e0b',
     flex: 1,
   },
 });

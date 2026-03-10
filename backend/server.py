@@ -220,34 +220,6 @@ def generate_mock_data():
             "assigned_technician_id": "tech-001",
             "equipment_count": 8
         },
-        {
-            "id": "proj-004", 
-            "salesforce_id": "a0B004", 
-            "project_number": "PRJ-2024-004",
-            "name": "Tech Campus Building A - RTU Service",
-            "description": "Rooftop unit maintenance and coil cleaning",
-            "status": "On Hold",
-            "client_name": "Global Tech Industries",
-            "address": "456 Innovation Way, San Jose, CA 95110",
-            "start_date": now + timedelta(days=14),
-            "end_date": now + timedelta(days=21),
-            "assigned_technician_id": "tech-001",
-            "equipment_count": 16
-        },
-        {
-            "id": "proj-005", 
-            "salesforce_id": "a0B005", 
-            "project_number": "PRJ-2024-005",
-            "name": "Downtown Office Complex - Completed",
-            "description": "Full coil system cleaning completed",
-            "status": "Completed",
-            "client_name": "City Properties LLC",
-            "address": "100 Financial District, Boston, MA 02110",
-            "start_date": now - timedelta(days=30),
-            "end_date": now - timedelta(days=15),
-            "assigned_technician_id": "tech-001",
-            "equipment_count": 12
-        },
     ]
     
     # Mock Equipment for projects
