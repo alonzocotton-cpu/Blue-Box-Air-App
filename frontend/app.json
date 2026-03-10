@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Blue Box Air, Inc Tech App",
-    "slug": "blue-box-air-inc-tech-app",
+    "name": "Blue Box Air, Inc.",
+    "slug": "blue-box-air-inc",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.jpeg",

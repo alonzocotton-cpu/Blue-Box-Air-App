@@ -180,7 +180,8 @@ export default function LoginScreen() {
               <BlueBoxLogo size={110} />
             </View>
             <Text style={styles.title}>BLUE BOX</Text>
-            <Text style={styles.subtitle}>Air, Inc. Tech App</Text>
+            <Text style={styles.subtitle}>Air, Inc.</Text>
+            <Text style={styles.tagline}>Coil Management Solutions</Text>
           </View>
 
           {/* Login Form */}
@@ -325,6 +326,13 @@ const styles = StyleSheet.create({
     color: COLORS.lime,
     fontWeight: '500',
     marginTop: 4,
+  },
+  tagline: {
+    fontSize: 13,
+    color: COLORS.gray,
+    fontWeight: '400',
+    marginTop: 6,
+    letterSpacing: 1.5,
   },
   form: {
     marginBottom: 24,
