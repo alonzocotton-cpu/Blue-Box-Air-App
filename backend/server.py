@@ -102,18 +102,22 @@ class Reading(BaseModel):
     equipment_id: str
     project_id: str
     technician_id: str
-    reading_type: str  # Pressure, Airflow, Temperature, Humidity
+    reading_type: str  # Differential Pressure, Airflow, Temperature, Humidity
+    reading_phase: str = "Pre"  # Pre or Post
     value: float
     unit: str
+    captured_at: datetime = Field(default_factory=datetime.utcnow)  # User-specified capture time
     notes: Optional[str] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)  # Record creation time
 
 class ReadingCreate(BaseModel):
     equipment_id: str
     project_id: str
     reading_type: str
+    reading_phase: str = "Pre"  # Pre or Post
     value: float
     unit: str
+    captured_at: Optional[str] = None  # ISO format datetime string
     notes: Optional[str] = None
 
 class Photo(BaseModel):
@@ -370,18 +374,36 @@ async def get_equipment_detail(equipment_id: str):
 
 @api_router.post("/readings")
 async def create_reading(reading: ReadingCreate):
-    """Record a new reading (pressure, airflow, etc.)"""
+    """Record a new reading (pressure, airflow, etc.) with Pre/Post phase"""
+    # Parse captured_at if provided, otherwise use current time
+    captured_at = datetime.utcnow()
+    if reading.captured_at:
+        try:
+            captured_at = datetime.fromisoformat(reading.captured_at.replace('Z', '+00:00'))
+        except:
+            captured_at = datetime.utcnow()
+    
     reading_obj = Reading(
-        **reading.dict(),
-        technician_id=current_technician_id
+        equipment_id=reading.equipment_id,
+        project_id=reading.project_id,
+        technician_id=current_technician_id,
+        reading_type=reading.reading_type,
+        reading_phase=reading.reading_phase,
+        value=reading.value,
+        unit=reading.unit,
+        captured_at=captured_at,
+        notes=reading.notes
     )
     await db.readings.insert_one(reading_obj.dict())
-    return {"success": True, "reading": reading_obj.dict()}
+    return {"success": True, "reading": serialize_doc(reading_obj.dict())}
 
 @api_router.get("/readings/{equipment_id}")
-async def get_readings(equipment_id: str):
-    """Get all readings for an equipment"""
-    readings = await db.readings.find({"equipment_id": equipment_id}).sort("timestamp", -1).to_list(100)
+async def get_readings(equipment_id: str, phase: Optional[str] = None):
+    """Get all readings for an equipment, optionally filtered by phase (Pre/Post)"""
+    query = {"equipment_id": equipment_id}
+    if phase:
+        query["reading_phase"] = phase
+    readings = await db.readings.find(query).sort("captured_at", -1).to_list(100)
     return {"readings": serialize_doc(readings)}
 
 # ============ Photo Routes ============
