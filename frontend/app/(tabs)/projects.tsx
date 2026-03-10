@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -153,6 +154,11 @@ export default function ProjectsScreen() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View style={styles.brandContainer}>
+            <Image
+              source={{ uri: 'https://customer-assets.emergentagent.com/job_ff19b27f-9c44-4d68-b174-1452a3057557/artifacts/jz43di8v_IMG_2827.jpeg' }}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
             <Text style={styles.brandText}>BLUE BOX</Text>
             <View style={styles.addButton}>
               <Ionicons name="add" size={24} color={COLORS.lime} />
@@ -242,6 +248,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  headerLogo: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    marginRight: 10,
   },
   brandText: {
     fontSize: 24,

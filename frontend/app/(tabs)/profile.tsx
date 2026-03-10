@@ -249,7 +249,14 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.brandText}>BLUE BOX</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Image
+            source={{ uri: 'https://customer-assets.emergentagent.com/job_ff19b27f-9c44-4d68-b174-1452a3057557/artifacts/jz43di8v_IMG_2827.jpeg' }}
+            style={{ width: 36, height: 36, borderRadius: 8, marginRight: 10 }}
+            resizeMode="contain"
+          />
+          <Text style={styles.brandText}>BLUE BOX</Text>
+        </View>
         {activeProfileTab === 'profile' && !editing && (
           <TouchableOpacity onPress={() => setEditing(true)}>
             <Ionicons name="create-outline" size={24} color={COLORS.lime} />
