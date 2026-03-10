@@ -444,6 +444,109 @@ async def get_service_logs(project_id: str):
 
 # ============ Dashboard Stats ============
 
+@api_router.get("/reports/{project_id}")
+async def generate_report(project_id: str):
+    """Generate a project report with equipment readings comparison and photos link.
+    This will integrate with Salesforce API in production to pull live data."""
+    
+    project = next((p for p in MOCK_DATA["projects"] if p["id"] == project_id), None)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Serialize project dates
+    project = project.copy()
+    if project.get("start_date"):
+        project["start_date"] = project["start_date"].isoformat() if isinstance(project["start_date"], datetime) else project["start_date"]
+    if project.get("end_date"):
+        project["end_date"] = project["end_date"].isoformat() if isinstance(project["end_date"], datetime) else project["end_date"]
+    
+    # Get equipment
+    equipment_list = [eq for eq in MOCK_DATA["equipment"] if eq["project_id"] == project_id]
+    
+    # Get all readings for this project
+    all_readings = await db.readings.find({"project_id": project_id}).to_list(500)
+    all_readings = serialize_doc(all_readings)
+    
+    # Get all photos
+    photos = await db.photos.find({"project_id": project_id}).to_list(100)
+    photos = serialize_doc(photos)
+    
+    # Get service logs
+    service_logs = await db.service_logs.find({"project_id": project_id}).to_list(100)
+    service_logs = serialize_doc(service_logs)
+    
+    # Build reading comparisons per equipment
+    reading_types = ["Differential Pressure", "Airflow", "Temperature", "Humidity"]
+    unit_map = {"Differential Pressure": "inWC", "Airflow": "FPM", "Temperature": "°F", "Humidity": "%"}
+    
+    equipment_reports = []
+    for eq in equipment_list:
+        eq_readings = [r for r in all_readings if r.get("equipment_id") == eq["id"]]
+        
+        comparisons = []
+        for rt in reading_types:
+            type_readings = [r for r in eq_readings if r.get("reading_type") == rt]
+            pre_readings = [r for r in type_readings if r.get("reading_phase") == "Pre"]
+            post_readings = [r for r in type_readings if r.get("reading_phase") == "Post"]
+            
+            # Get the latest pre and post
+            latest_pre = None
+            latest_post = None
+            
+            if pre_readings:
+                latest_pre = max(pre_readings, key=lambda r: r.get("captured_at", r.get("timestamp", "")))
+            if post_readings:
+                latest_post = max(post_readings, key=lambda r: r.get("captured_at", r.get("timestamp", "")))
+            
+            difference = None
+            percent_change = None
+            if latest_pre and latest_post:
+                difference = round(latest_post["value"] - latest_pre["value"], 2)
+                if latest_pre["value"] != 0:
+                    percent_change = round((difference / latest_pre["value"]) * 100, 1)
+            
+            comparisons.append({
+                "reading_type": rt,
+                "unit": unit_map.get(rt, ""),
+                "pre": {
+                    "value": latest_pre["value"] if latest_pre else None,
+                    "captured_at": latest_pre.get("captured_at") if latest_pre else None,
+                } if latest_pre else None,
+                "post": {
+                    "value": latest_post["value"] if latest_post else None,
+                    "captured_at": latest_post.get("captured_at") if latest_post else None,
+                } if latest_post else None,
+                "difference": difference,
+                "percent_change": percent_change,
+            })
+        
+        equipment_reports.append({
+            "equipment": eq,
+            "comparisons": comparisons,
+            "has_data": any(c["pre"] or c["post"] for c in comparisons),
+        })
+    
+    # Build report
+    report = {
+        "report_id": f"RPT-{project_id}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+        "generated_at": datetime.utcnow().isoformat(),
+        "salesforce_sync_status": "MOCK - Will sync with Salesforce in production",
+        "project": project,
+        "technician": MOCK_DATA["technician"],
+        "summary": {
+            "total_equipment": len(equipment_list),
+            "equipment_with_readings": len([er for er in equipment_reports if er["has_data"]]),
+            "total_readings": len(all_readings),
+            "total_photos": len(photos),
+            "total_service_logs": len(service_logs),
+        },
+        "equipment_reports": equipment_reports,
+        "photos": [{"id": p.get("id"), "photo_type": p.get("photo_type", "General"), "created_at": p.get("created_at"), "equipment_id": p.get("equipment_id")} for p in photos],
+        "service_logs": service_logs,
+    }
+    
+    return report
+
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats():
     """Get dashboard statistics"""

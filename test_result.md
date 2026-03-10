@@ -355,3 +355,5 @@ agent_communication:
     message: "Initial implementation complete. All backend APIs and frontend screens are implemented. Need to test all API endpoints. Frontend has been verified through screenshots - login, home, work orders, customers, cases, profile screens all working."
   - agent: "main"
     message: "Fixed date/time picker on web. Replaced @react-native-community/datetimepicker (native-only) with cross-platform solution: HTML native inputs on web, keeps native pickers on iOS/Android. Verified: date input, time input, value entry, and reading submission all working on web preview."
+  - agent: "main"
+    message: "Added Generate Report feature. New backend endpoint GET /api/reports/{project_id} aggregates project data with equipment reading comparisons. New Report tab on project detail page shows: project summary stats, equipment data changes (Pre/Post/Difference table), project photos link, and Salesforce sync status badge. All verified via screenshots."

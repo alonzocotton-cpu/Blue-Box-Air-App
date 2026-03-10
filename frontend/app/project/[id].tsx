@@ -55,6 +55,10 @@ export default function ProjectDetailScreen() {
     description: '',
     duration_minutes: '',
   });
+  
+  // Report state
+  const [reportData, setReportData] = useState<any>(null);
+  const [reportLoading, setReportLoading] = useState(false);
 
   const fetchDetails = async () => {
     try {
@@ -72,6 +76,27 @@ export default function ProjectDetailScreen() {
   useEffect(() => {
     fetchDetails();
   }, [id]);
+
+  const fetchReport = async () => {
+    setReportLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/reports/${id}`);
+      const data = await response.json();
+      setReportData(data);
+    } catch (error) {
+      console.error('Error generating report:', error);
+      Alert.alert('Error', 'Failed to generate report');
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  // Fetch report when tab switches to report
+  useEffect(() => {
+    if (activeTab === 'report' && !reportData) {
+      fetchReport();
+    }
+  }, [activeTab]);
 
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -291,20 +316,212 @@ export default function ProjectDetailScreen() {
 
         {/* Tabs */}
         <View style={styles.tabsContainer}>
-          {['equipment', 'service', 'photos'].map((tab) => (
+          {['report', 'equipment', 'service', 'photos'].map((tab) => (
             <TouchableOpacity
               key={tab}
               style={[styles.tab, activeTab === tab && styles.tabActive]}
               onPress={() => setActiveTab(tab)}
             >
+              {tab === 'report' && (
+                <Ionicons 
+                  name="document-text" 
+                  size={16} 
+                  color={activeTab === tab ? COLORS.navy : COLORS.gray} 
+                  style={{ marginRight: 4 }}
+                />
+              )}
               <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab === 'report' ? 'Report' : tab.charAt(0).toUpperCase() + tab.slice(1)}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Content */}
+        {activeTab === 'report' && (
+          <View style={styles.tabContent}>
+            {reportLoading ? (
+              <View style={styles.reportLoadingContainer}>
+                <ActivityIndicator size="large" color={COLORS.lime} />
+                <Text style={styles.reportLoadingText}>Generating Report...</Text>
+              </View>
+            ) : reportData ? (
+              <View>
+                {/* Report Header */}
+                <View style={styles.reportHeader}>
+                  <View style={styles.reportTitleRow}>
+                    <Ionicons name="document-text" size={28} color={COLORS.lime} />
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.reportTitle}>Project Report</Text>
+                      <Text style={styles.reportSubtitle}>{reportData.report_id}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.reportGenerated}>
+                    Generated: {reportData.generated_at ? format(new Date(reportData.generated_at), 'MMM d, yyyy h:mm a') : 'Now'}
+                  </Text>
+                </View>
+
+                {/* Salesforce Sync Badge */}
+                <View style={styles.sfSyncBadge}>
+                  <Ionicons name="cloud-outline" size={16} color={COLORS.orange} />
+                  <Text style={styles.sfSyncText}>Salesforce: Mock Data (Will sync in production)</Text>
+                </View>
+
+                {/* Report Summary */}
+                <View style={styles.reportSummaryCard}>
+                  <Text style={styles.reportSectionTitle}>Summary</Text>
+                  <View style={styles.summaryGrid}>
+                    <View style={styles.summaryItem}>
+                      <Text style={styles.summaryNumber}>{reportData.summary?.total_equipment || 0}</Text>
+                      <Text style={styles.summaryLabel}>Equipment</Text>
+                    </View>
+                    <View style={styles.summaryItem}>
+                      <Text style={styles.summaryNumber}>{reportData.summary?.total_readings || 0}</Text>
+                      <Text style={styles.summaryLabel}>Readings</Text>
+                    </View>
+                    <View style={styles.summaryItem}>
+                      <Text style={styles.summaryNumber}>{reportData.summary?.total_photos || 0}</Text>
+                      <Text style={styles.summaryLabel}>Photos</Text>
+                    </View>
+                    <View style={styles.summaryItem}>
+                      <Text style={styles.summaryNumber}>{reportData.summary?.total_service_logs || 0}</Text>
+                      <Text style={styles.summaryLabel}>Logs</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Equipment Data Changes */}
+                <Text style={styles.reportSectionTitle}>Equipment Data Changes</Text>
+                <Text style={styles.reportSectionSubtitle}>Pre vs Post service reading comparisons</Text>
+
+                {reportData.equipment_reports?.map((eqReport: any, idx: number) => (
+                  <View key={eqReport.equipment?.id || idx} style={styles.reportEquipmentCard}>
+                    <View style={styles.reportEquipmentHeader}>
+                      <View style={styles.reportEquipmentIconContainer}>
+                        <Ionicons name="cube" size={20} color={COLORS.lime} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.reportEquipmentName}>{eqReport.equipment?.name}</Text>
+                        <Text style={styles.reportEquipmentType}>
+                          {eqReport.equipment?.equipment_type} • {eqReport.equipment?.location || 'N/A'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {eqReport.has_data ? (
+                      <View style={styles.reportReadingsTable}>
+                        {/* Table Header */}
+                        <View style={styles.reportTableHeader}>
+                          <Text style={[styles.reportTableHeaderCell, { flex: 2 }]}>Metric</Text>
+                          <Text style={styles.reportTableHeaderCell}>Pre</Text>
+                          <Text style={styles.reportTableHeaderCell}>Post</Text>
+                          <Text style={styles.reportTableHeaderCell}>Change</Text>
+                        </View>
+
+                        {/* Table Rows */}
+                        {eqReport.comparisons?.map((comp: any, cIdx: number) => {
+                          if (!comp.pre && !comp.post) return null;
+                          
+                          const diffColor = comp.difference === null ? COLORS.grayDark 
+                            : comp.difference > 0 ? COLORS.green 
+                            : comp.difference < 0 ? COLORS.red 
+                            : COLORS.gray;
+                          
+                          return (
+                            <View key={cIdx} style={styles.reportTableRow}>
+                              <View style={[styles.reportTableCell, { flex: 2 }]}>
+                                <Text style={styles.reportMetricName}>{comp.reading_type}</Text>
+                                <Text style={styles.reportMetricUnit}>{comp.unit}</Text>
+                              </View>
+                              <View style={styles.reportTableCell}>
+                                <Text style={styles.reportValueText}>
+                                  {comp.pre ? comp.pre.value : '—'}
+                                </Text>
+                              </View>
+                              <View style={styles.reportTableCell}>
+                                <Text style={styles.reportValueText}>
+                                  {comp.post ? comp.post.value : '—'}
+                                </Text>
+                              </View>
+                              <View style={styles.reportTableCell}>
+                                {comp.difference !== null ? (
+                                  <View style={[styles.reportChangeBadge, { backgroundColor: diffColor + '20' }]}>
+                                    <Ionicons 
+                                      name={comp.difference > 0 ? 'arrow-up' : comp.difference < 0 ? 'arrow-down' : 'remove'} 
+                                      size={12} 
+                                      color={diffColor} 
+                                    />
+                                    <Text style={[styles.reportChangeText, { color: diffColor }]}>
+                                      {Math.abs(comp.difference)}
+                                    </Text>
+                                  </View>
+                                ) : (
+                                  <Text style={styles.reportNoData}>—</Text>
+                                )}
+                                {comp.percent_change !== null && (
+                                  <Text style={[styles.reportPercentText, { color: diffColor }]}>
+                                    {comp.percent_change > 0 ? '+' : ''}{comp.percent_change}%
+                                  </Text>
+                                )}
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    ) : (
+                      <View style={styles.reportNoDataContainer}>
+                        <Text style={styles.reportNoDataText}>No readings recorded</Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
+
+                {/* Photos Link */}
+                <Text style={[styles.reportSectionTitle, { marginTop: 20 }]}>Project Photos</Text>
+                <TouchableOpacity 
+                  style={styles.photosLinkCard}
+                  onPress={() => setActiveTab('photos')}
+                >
+                  <View style={styles.photosLinkContent}>
+                    <View style={styles.photosLinkIconContainer}>
+                      <Ionicons name="images" size={28} color={COLORS.lime} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.photosLinkTitle}>
+                        View All Photos ({reportData.summary?.total_photos || 0})
+                      </Text>
+                      <Text style={styles.photosLinkSubtitle}>
+                        {reportData.photos?.length > 0 
+                          ? `${reportData.photos.filter((p: any) => p.photo_type === 'Equipment').length} equipment, ${reportData.photos.filter((p: any) => p.photo_type === 'General').length} general photos`
+                          : 'No photos uploaded yet'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={22} color={COLORS.lime} />
+                  </View>
+                </TouchableOpacity>
+
+                {/* Refresh / Re-generate Button */}
+                <TouchableOpacity style={styles.regenerateButton} onPress={fetchReport}>
+                  <Ionicons name="refresh" size={20} color={COLORS.navy} />
+                  <Text style={styles.regenerateButtonText}>Refresh Report</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.reportEmptyState}>
+                <Ionicons name="document-text-outline" size={48} color={COLORS.grayDark} />
+                <Text style={styles.reportEmptyTitle}>Generate Project Report</Text>
+                <Text style={styles.reportEmptySubtitle}>
+                  View equipment data changes, reading comparisons, and project photos
+                </Text>
+                <TouchableOpacity style={styles.generateButton} onPress={fetchReport}>
+                  <Ionicons name="document-text" size={20} color={COLORS.navy} />
+                  <Text style={styles.generateButtonText}>Generate Report</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+
         {activeTab === 'equipment' && (
           <View style={styles.tabContent}>
             {equipment.map((item) => (
@@ -827,6 +1044,292 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   submitButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.navy,
+  },
+  // ============ Report Styles ============
+  reportLoadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  reportLoadingText: {
+    fontSize: 14,
+    color: COLORS.gray,
+    marginTop: 12,
+  },
+  reportHeader: {
+    backgroundColor: COLORS.navyLight,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  reportTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  reportTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  reportSubtitle: {
+    fontSize: 11,
+    color: COLORS.grayDark,
+    marginTop: 2,
+  },
+  reportGenerated: {
+    fontSize: 12,
+    color: COLORS.gray,
+  },
+  sfSyncBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: COLORS.orange + '15',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.orange + '30',
+  },
+  sfSyncText: {
+    fontSize: 12,
+    color: COLORS.orange,
+    fontWeight: '500',
+  },
+  reportSummaryCard: {
+    backgroundColor: COLORS.navyLight,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  reportSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginBottom: 4,
+  },
+  reportSectionSubtitle: {
+    fontSize: 12,
+    color: COLORS.grayDark,
+    marginBottom: 14,
+  },
+  summaryGrid: {
+    flexDirection: 'row',
+    marginTop: 12,
+    gap: 8,
+  },
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: COLORS.navy,
+    borderRadius: 10,
+    padding: 12,
+  },
+  summaryNumber: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: COLORS.lime,
+  },
+  summaryLabel: {
+    fontSize: 11,
+    color: COLORS.gray,
+    marginTop: 2,
+  },
+  reportEquipmentCard: {
+    backgroundColor: COLORS.navyLight,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  reportEquipmentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2d4a6f',
+  },
+  reportEquipmentIconContainer: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: COLORS.lime + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  reportEquipmentName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  reportEquipmentType: {
+    fontSize: 12,
+    color: COLORS.grayDark,
+    marginTop: 2,
+  },
+  reportReadingsTable: {
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  reportTableHeader: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.navy,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    marginBottom: 4,
+  },
+  reportTableHeaderCell: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.grayDark,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  reportTableRow: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2d4a6f20',
+    alignItems: 'center',
+  },
+  reportTableCell: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  reportMetricName: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: COLORS.white,
+  },
+  reportMetricUnit: {
+    fontSize: 10,
+    color: COLORS.grayDark,
+  },
+  reportValueText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  reportChangeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  reportChangeText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  reportPercentText: {
+    fontSize: 10,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  reportNoData: {
+    fontSize: 14,
+    color: COLORS.grayDark,
+  },
+  reportNoDataContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  reportNoDataText: {
+    fontSize: 13,
+    color: COLORS.grayDark,
+    fontStyle: 'italic',
+  },
+  photosLinkCard: {
+    backgroundColor: COLORS.navyLight,
+    borderRadius: 14,
+    padding: 16,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: COLORS.lime + '30',
+  },
+  photosLinkContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  photosLinkIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: COLORS.lime + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  photosLinkTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.lime,
+  },
+  photosLinkSubtitle: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginTop: 3,
+  },
+  regenerateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.lime,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  regenerateButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.navy,
+  },
+  reportEmptyState: {
+    alignItems: 'center',
+    paddingVertical: 50,
+  },
+  reportEmptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.white,
+    marginTop: 16,
+  },
+  reportEmptySubtitle: {
+    fontSize: 13,
+    color: COLORS.gray,
+    textAlign: 'center',
+    marginTop: 8,
+    paddingHorizontal: 20,
+    lineHeight: 20,
+  },
+  generateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: COLORS.lime,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 20,
+  },
+  generateButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.navy,
