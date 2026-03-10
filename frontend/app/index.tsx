@@ -179,8 +179,7 @@ export default function LoginScreen() {
             <View style={styles.logoContainer}>
               <BlueBoxLogo size={110} />
             </View>
-            <Text style={styles.title}>BLUE BOX</Text>
-            <Text style={styles.subtitle}>Air, Inc.</Text>
+            <Text style={styles.title}>Blue Box Air, Inc.</Text>
             <Text style={styles.tagline}>Coil Management Solutions</Text>
           </View>
 
@@ -316,10 +315,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: '700',
     color: COLORS.white,
-    letterSpacing: 4,
+    letterSpacing: 1,
   },
   subtitle: {
     fontSize: 18,
