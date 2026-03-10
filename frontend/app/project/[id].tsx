@@ -1,0 +1,834 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  FlatList,
+  Alert,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { format } from 'date-fns';
+
+const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+
+// Blue Box Air colors
+const COLORS = {
+  navy: '#0f2744',
+  navyLight: '#1a365d',
+  navyMid: '#1e3a5f',
+  lime: '#c5d93d',
+  white: '#ffffff',
+  gray: '#94a3b8',
+  grayDark: '#64748b',
+  green: '#22c55e',
+  orange: '#f59e0b',
+  red: '#ef4444',
+};
+
+interface ProjectDetails {
+  project: any;
+  equipment: any[];
+  readings: any[];
+  photos: any[];
+  service_logs: any[];
+}
+
+export default function ProjectDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [details, setDetails] = useState<ProjectDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('equipment');
+  const [showServiceModal, setShowServiceModal] = useState(false);
+  const [selectedEquipment, setSelectedEquipment] = useState<any>(null);
+  const [serviceForm, setServiceForm] = useState({
+    service_type: 'Inspection',
+    description: '',
+    duration_minutes: '',
+  });
+
+  const fetchDetails = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/projects/${id}`);
+      const data = await response.json();
+      setDetails(data);
+    } catch (error) {
+      console.error('Error fetching project:', error);
+      Alert.alert('Error', 'Failed to load project details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDetails();
+  }, [id]);
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Camera permission is required to take photos');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0].base64) {
+      try {
+        await fetch(`${API_URL}/api/photos`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: id,
+            equipment_id: selectedEquipment?.id,
+            image_data: `data:image/jpeg;base64,${result.assets[0].base64}`,
+            photo_type: 'General',
+          }),
+        });
+        fetchDetails();
+        Alert.alert('Success', 'Photo uploaded successfully');
+      } catch (error) {
+        Alert.alert('Error', 'Failed to upload photo');
+      }
+    }
+  };
+
+  const submitServiceLog = async () => {
+    if (!selectedEquipment || !serviceForm.description) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    try {
+      await fetch(`${API_URL}/api/service-logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: id,
+          equipment_id: selectedEquipment.id,
+          service_type: serviceForm.service_type,
+          description: serviceForm.description,
+          duration_minutes: serviceForm.duration_minutes ? parseInt(serviceForm.duration_minutes) : null,
+        }),
+      });
+      setShowServiceModal(false);
+      setServiceForm({ service_type: 'Inspection', description: '', duration_minutes: '' });
+      setSelectedEquipment(null);
+      fetchDetails();
+      Alert.alert('Success', 'Service log created successfully');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to create service log');
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Active': return COLORS.lime;
+      case 'Completed': return COLORS.green;
+      case 'On Hold': return COLORS.orange;
+      default: return COLORS.gray;
+    }
+  };
+
+  if (loading || !details) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.lime} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const { project, equipment, readings, photos, service_logs } = details;
+
+  const renderEquipmentItem = ({ item }: { item: any }) => (
+    <TouchableOpacity
+      style={styles.equipmentCard}
+      onPress={() => router.push(`/equipment/${item.id}`)}
+    >
+      <View style={styles.equipmentHeader}>
+        <View style={styles.equipmentIcon}>
+          <Ionicons name="cube" size={24} color={COLORS.lime} />
+        </View>
+        <View style={styles.equipmentInfo}>
+          <Text style={styles.equipmentName}>{item.name}</Text>
+          <Text style={styles.equipmentType}>{item.equipment_type}</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={COLORS.grayDark} />
+      </View>
+      <View style={styles.equipmentDetails}>
+        {item.model && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Model:</Text>
+            <Text style={styles.detailValue}>{item.model}</Text>
+          </View>
+        )}
+        {item.location && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Location:</Text>
+            <Text style={styles.detailValue}>{item.location}</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.equipmentActions}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => {
+            setSelectedEquipment(item);
+            setShowServiceModal(true);
+          }}
+        >
+          <Ionicons name="create" size={18} color={COLORS.lime} />
+          <Text style={styles.actionText}>Log Service</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => {
+            setSelectedEquipment(item);
+            takePhoto();
+          }}
+        >
+          <Ionicons name="camera" size={18} color={COLORS.lime} />
+          <Text style={styles.actionText}>Photo</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+        </TouchableOpacity>
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerNumber}>{project.project_number}</Text>
+        </View>
+        <TouchableOpacity style={styles.moreButton} onPress={takePhoto}>
+          <Ionicons name="camera" size={24} color={COLORS.lime} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Project Info */}
+        <View style={styles.projectInfo}>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(project.status) + '20' }]}>
+            <View style={[styles.statusDot, { backgroundColor: getStatusColor(project.status) }]} />
+            <Text style={[styles.statusText, { color: getStatusColor(project.status) }]}>
+              {project.status}
+            </Text>
+          </View>
+          <Text style={styles.projectName}>{project.name}</Text>
+          {project.description && (
+            <Text style={styles.projectDescription}>{project.description}</Text>
+          )}
+        </View>
+
+        {/* Client Info Card */}
+        <View style={styles.infoCard}>
+          <View style={styles.cardRow}>
+            <Ionicons name="business" size={18} color={COLORS.lime} />
+            <View style={styles.cardRowText}>
+              <Text style={styles.cardLabel}>Client</Text>
+              <Text style={styles.cardValue}>{project.client_name}</Text>
+            </View>
+          </View>
+          {project.address && (
+            <View style={styles.cardRow}>
+              <Ionicons name="location" size={18} color={COLORS.lime} />
+              <View style={styles.cardRowText}>
+                <Text style={styles.cardLabel}>Address</Text>
+                <Text style={styles.cardValue}>{project.address}</Text>
+              </View>
+            </View>
+          )}
+          {project.start_date && (
+            <View style={styles.cardRow}>
+              <Ionicons name="calendar" size={18} color={COLORS.lime} />
+              <View style={styles.cardRowText}>
+                <Text style={styles.cardLabel}>Schedule</Text>
+                <Text style={styles.cardValue}>
+                  {format(new Date(project.start_date), 'MMM d')} - {project.end_date ? format(new Date(project.end_date), 'MMM d, yyyy') : 'Ongoing'}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Stats */}
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Ionicons name="cube" size={24} color={COLORS.lime} />
+            <Text style={styles.statNumber}>{equipment.length}</Text>
+            <Text style={styles.statLabel}>Equipment</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Ionicons name="document-text" size={24} color={COLORS.lime} />
+            <Text style={styles.statNumber}>{service_logs?.length || 0}</Text>
+            <Text style={styles.statLabel}>Service Logs</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Ionicons name="images" size={24} color={COLORS.lime} />
+            <Text style={styles.statNumber}>{photos?.length || 0}</Text>
+            <Text style={styles.statLabel}>Photos</Text>
+          </View>
+        </View>
+
+        {/* Tabs */}
+        <View style={styles.tabsContainer}>
+          {['equipment', 'service', 'photos'].map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, activeTab === tab && styles.tabActive]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Content */}
+        {activeTab === 'equipment' && (
+          <View style={styles.tabContent}>
+            {equipment.map((item) => (
+              <View key={item.id}>
+                {renderEquipmentItem({ item })}
+              </View>
+            ))}
+            {equipment.length === 0 && (
+              <View style={styles.emptyState}>
+                <Ionicons name="cube-outline" size={40} color={COLORS.grayDark} />
+                <Text style={styles.emptyText}>No equipment found</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {activeTab === 'service' && (
+          <View style={styles.tabContent}>
+            {service_logs?.map((log: any, index: number) => (
+              <View key={log.id || index} style={styles.serviceLogCard}>
+                <View style={styles.logHeader}>
+                  <View style={styles.logTypeBadge}>
+                    <Text style={styles.logTypeText}>{log.service_type}</Text>
+                  </View>
+                  {log.duration_minutes && (
+                    <Text style={styles.logDuration}>{log.duration_minutes} min</Text>
+                  )}
+                </View>
+                <Text style={styles.logDescription}>{log.description}</Text>
+                <Text style={styles.logDate}>
+                  {log.created_at ? format(new Date(log.created_at), 'MMM d, yyyy h:mm a') : ''}
+                </Text>
+              </View>
+            ))}
+            {(!service_logs || service_logs.length === 0) && (
+              <View style={styles.emptyState}>
+                <Ionicons name="document-text-outline" size={40} color={COLORS.grayDark} />
+                <Text style={styles.emptyText}>No service logs yet</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {activeTab === 'photos' && (
+          <View style={styles.tabContent}>
+            <View style={styles.photosGrid}>
+              {photos?.map((photo: any, index: number) => (
+                <View key={photo.id || index} style={styles.photoThumb}>
+                  <Ionicons name="image" size={32} color={COLORS.grayDark} />
+                </View>
+              ))}
+            </View>
+            {(!photos || photos.length === 0) && (
+              <View style={styles.emptyState}>
+                <Ionicons name="images-outline" size={40} color={COLORS.grayDark} />
+                <Text style={styles.emptyText}>No photos yet</Text>
+                <TouchableOpacity style={styles.addPhotoBtn} onPress={takePhoto}>
+                  <Ionicons name="camera" size={20} color={COLORS.navy} />
+                  <Text style={styles.addPhotoBtnText}>Take Photo</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+      {/* Service Log Modal */}
+      <Modal visible={showServiceModal} transparent animationType="slide">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Log Service</Text>
+              <TouchableOpacity onPress={() => setShowServiceModal(false)}>
+                <Ionicons name="close" size={24} color={COLORS.white} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedEquipment && (
+              <Text style={styles.selectedEquipment}>{selectedEquipment.name}</Text>
+            )}
+
+            <View style={styles.serviceTypes}>
+              {['Inspection', 'Maintenance', 'Repair', 'Cleaning'].map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[
+                    styles.serviceTypeBtn,
+                    serviceForm.service_type === type && styles.serviceTypeBtnActive,
+                  ]}
+                  onPress={() => setServiceForm({ ...serviceForm, service_type: type })}
+                >
+                  <Text
+                    style={[
+                      styles.serviceTypeBtnText,
+                      serviceForm.service_type === type && styles.serviceTypeBtnTextActive,
+                    ]}
+                  >
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TextInput
+              style={[styles.modalInput, styles.modalTextArea]}
+              placeholder="Description of work performed"
+              placeholderTextColor={COLORS.grayDark}
+              value={serviceForm.description}
+              onChangeText={(text) => setServiceForm({ ...serviceForm, description: text })}
+              multiline
+              numberOfLines={4}
+            />
+
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Duration (minutes)"
+              placeholderTextColor={COLORS.grayDark}
+              keyboardType="numeric"
+              value={serviceForm.duration_minutes}
+              onChangeText={(text) => setServiceForm({ ...serviceForm, duration_minutes: text })}
+            />
+
+            <TouchableOpacity style={styles.submitButton} onPress={submitServiceLog}>
+              <Text style={styles.submitButtonText}>Save Service Log</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.navy,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: COLORS.navyLight,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2d4a6f',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerInfo: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerNumber: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.lime,
+  },
+  moreButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  projectInfo: {
+    padding: 20,
+    alignItems: 'flex-start',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+    marginBottom: 12,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  projectName: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginBottom: 8,
+  },
+  projectDescription: {
+    fontSize: 15,
+    color: COLORS.gray,
+    lineHeight: 22,
+  },
+  infoCard: {
+    backgroundColor: COLORS.navyLight,
+    marginHorizontal: 20,
+    borderRadius: 16,
+    padding: 16,
+    gap: 16,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+  },
+  cardRowText: {
+    flex: 1,
+  },
+  cardLabel: {
+    fontSize: 12,
+    color: COLORS.grayDark,
+    marginBottom: 2,
+  },
+  cardValue: {
+    fontSize: 15,
+    color: COLORS.white,
+    fontWeight: '500',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: COLORS.navyLight,
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginTop: 6,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: COLORS.gray,
+    marginTop: 2,
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 8,
+    marginBottom: 16,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: COLORS.navyLight,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  tabActive: {
+    backgroundColor: COLORS.lime,
+    borderColor: COLORS.lime,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.gray,
+  },
+  tabTextActive: {
+    color: COLORS.navy,
+  },
+  tabContent: {
+    paddingHorizontal: 20,
+  },
+  equipmentCard: {
+    backgroundColor: COLORS.navyLight,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  equipmentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  equipmentIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: COLORS.lime + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  equipmentInfo: {
+    flex: 1,
+  },
+  equipmentName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  equipmentType: {
+    fontSize: 13,
+    color: COLORS.lime,
+  },
+  equipmentDetails: {
+    gap: 6,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2d4a6f',
+  },
+  detailRow: {
+    flexDirection: 'row',
+  },
+  detailLabel: {
+    fontSize: 13,
+    color: COLORS.grayDark,
+    width: 70,
+  },
+  detailValue: {
+    flex: 1,
+    fontSize: 13,
+    color: COLORS.gray,
+  },
+  equipmentActions: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingTop: 12,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    backgroundColor: COLORS.lime + '20',
+    borderRadius: 8,
+  },
+  actionText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: COLORS.lime,
+  },
+  serviceLogCard: {
+    backgroundColor: COLORS.navyLight,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  logHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  logTypeBadge: {
+    backgroundColor: COLORS.lime + '20',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  logTypeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.lime,
+  },
+  logDuration: {
+    fontSize: 12,
+    color: COLORS.gray,
+  },
+  logDescription: {
+    fontSize: 14,
+    color: COLORS.white,
+    marginBottom: 8,
+  },
+  logDate: {
+    fontSize: 12,
+    color: COLORS.grayDark,
+  },
+  photosGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  photoThumb: {
+    width: '31%',
+    aspectRatio: 1,
+    backgroundColor: COLORS.navyLight,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: COLORS.grayDark,
+    marginTop: 12,
+  },
+  addPhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: COLORS.lime,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 16,
+  },
+  addPhotoBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.navy,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: COLORS.navyLight,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  selectedEquipment: {
+    fontSize: 15,
+    color: COLORS.lime,
+    marginBottom: 16,
+  },
+  serviceTypes: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  serviceTypeBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: COLORS.navy,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  serviceTypeBtnActive: {
+    backgroundColor: COLORS.lime,
+    borderColor: COLORS.lime,
+  },
+  serviceTypeBtnText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: COLORS.gray,
+  },
+  serviceTypeBtnTextActive: {
+    color: COLORS.navy,
+  },
+  modalInput: {
+    backgroundColor: COLORS.navy,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 15,
+    color: COLORS.white,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  modalTextArea: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  submitButton: {
+    backgroundColor: COLORS.lime,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.navy,
+  },
+});
