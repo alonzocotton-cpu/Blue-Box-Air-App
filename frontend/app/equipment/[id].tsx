@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
+
+// Only import DateTimePicker on native platforms
+let DateTimePicker: any = null;
+if (Platform.OS !== 'web') {
+  DateTimePicker = require('@react-native-community/datetimepicker').default;
+}
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -42,19 +47,118 @@ interface EquipmentDetails {
   service_logs: any[];
 }
 
+interface ReadingComparison {
+  type: string;
+  unit: string;
+  pre: { value: number; captured_at: string } | null;
+  post: { value: number; captured_at: string } | null;
+  difference: number | null;
+}
+
 const READING_TYPES = [
   { type: 'Differential Pressure', unit: 'inWC', icon: 'speedometer' },
-  { type: 'Airflow', unit: 'CFM', icon: 'swap-horizontal' },
+  { type: 'Airflow', unit: 'FPM', icon: 'swap-horizontal' },
   { type: 'Temperature', unit: '°F', icon: 'thermometer' },
   { type: 'Humidity', unit: '%', icon: 'water' },
 ];
+
+// Web-compatible Date/Time Picker Component
+function WebDateTimePicker({ date, onDateChange }: { date: Date; onDateChange: (d: Date) => void }) {
+
+  const handleDateChange = (e: any) => {
+    const val = e.target?.value;
+    if (val) {
+      const [year, month, day] = val.split('-').map(Number);
+      const newDate = new Date(date);
+      newDate.setFullYear(year);
+      newDate.setMonth(month - 1);
+      newDate.setDate(day);
+      onDateChange(newDate);
+    }
+  };
+
+  const handleTimeChange = (e: any) => {
+    const val = e.target?.value;
+    if (val) {
+      const [hours, minutes] = val.split(':').map(Number);
+      const newDate = new Date(date);
+      newDate.setHours(hours);
+      newDate.setMinutes(minutes);
+      onDateChange(newDate);
+    }
+  };
+
+  // Format date as YYYY-MM-DD for input
+  const dateValue = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  // Format time as HH:MM for input
+  const timeValue = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+
+  // Create native HTML inputs for web platform
+  const DateInput = React.createElement('input', {
+    type: 'date',
+    value: dateValue,
+    onChange: handleDateChange,
+    max: dateValue,
+    style: {
+      width: '100%',
+      height: 44,
+      backgroundColor: COLORS.navy,
+      color: COLORS.white,
+      border: `1px solid #2d4a6f`,
+      borderRadius: 10,
+      padding: '0 12px',
+      fontSize: 14,
+      fontFamily: 'inherit',
+      cursor: 'pointer',
+      colorScheme: 'dark',
+    },
+  });
+
+  const TimeInput = React.createElement('input', {
+    type: 'time',
+    value: timeValue,
+    onChange: handleTimeChange,
+    style: {
+      width: '100%',
+      height: 44,
+      backgroundColor: COLORS.navy,
+      color: COLORS.white,
+      border: `1px solid #2d4a6f`,
+      borderRadius: 10,
+      padding: '0 12px',
+      fontSize: 14,
+      fontFamily: 'inherit',
+      cursor: 'pointer',
+      colorScheme: 'dark',
+    },
+  });
+
+  return (
+    <View style={styles.dateTimeRow}>
+      <View style={styles.webDateTimeWrapper}>
+        <View style={styles.webDateTimeIconRow}>
+          <Ionicons name="calendar" size={18} color={COLORS.lime} />
+          <Text style={styles.webDateTimeLabel}>Date</Text>
+        </View>
+        {DateInput}
+      </View>
+      <View style={styles.webDateTimeWrapper}>
+        <View style={styles.webDateTimeIconRow}>
+          <Ionicons name="time" size={18} color={COLORS.lime} />
+          <Text style={styles.webDateTimeLabel}>Time</Text>
+        </View>
+        {TimeInput}
+      </View>
+    </View>
+  );
+}
 
 export default function EquipmentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [details, setDetails] = useState<EquipmentDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [showReadingModal, setShowReadingModal] = useState(false);
-  const [activePhaseFilter, setActivePhaseFilter] = useState<'All' | 'Pre' | 'Post'>('All');
+  const [activeTab, setActiveTab] = useState<'comparison' | 'history'>('comparison');
   
   // Reading form state
   const [readingForm, setReadingForm] = useState({
@@ -87,10 +191,61 @@ export default function EquipmentDetailScreen() {
     fetchDetails();
   }, [id]);
 
-  const openReadingModal = (readingType: string, unit: string) => {
+  // Calculate comparison data - group by reading type, get latest Pre and Post
+  const comparisonData = useMemo((): ReadingComparison[] => {
+    if (!details?.readings) return READING_TYPES.map(rt => ({
+      type: rt.type,
+      unit: rt.unit,
+      pre: null,
+      post: null,
+      difference: null,
+    }));
+
+    return READING_TYPES.map(rt => {
+      const typeReadings = details.readings.filter(r => r.reading_type === rt.type);
+      const preReadings = typeReadings.filter(r => r.reading_phase === 'Pre');
+      const postReadings = typeReadings.filter(r => r.reading_phase === 'Post');
+      
+      // Get most recent Pre and Post
+      const latestPre = preReadings.length > 0 
+        ? preReadings.reduce((a, b) => 
+            new Date(a.captured_at || a.timestamp) > new Date(b.captured_at || b.timestamp) ? a : b
+          )
+        : null;
+      
+      const latestPost = postReadings.length > 0 
+        ? postReadings.reduce((a, b) => 
+            new Date(a.captured_at || a.timestamp) > new Date(b.captured_at || b.timestamp) ? a : b
+          )
+        : null;
+
+      const difference = (latestPre && latestPost) 
+        ? parseFloat((latestPost.value - latestPre.value).toFixed(2))
+        : null;
+
+      return {
+        type: rt.type,
+        unit: rt.unit,
+        pre: latestPre ? { value: latestPre.value, captured_at: latestPre.captured_at || latestPre.timestamp } : null,
+        post: latestPost ? { value: latestPost.value, captured_at: latestPost.captured_at || latestPost.timestamp } : null,
+        difference,
+      };
+    });
+  }, [details?.readings]);
+
+  const openReadingModal = (readingType: string, unit: string, suggestedPhase?: 'Pre' | 'Post') => {
+    // Auto-suggest phase based on existing data
+    const comparison = comparisonData.find(c => c.type === readingType);
+    let phase: 'Pre' | 'Post' = suggestedPhase || 'Pre';
+    if (!suggestedPhase && comparison) {
+      if (!comparison.pre) phase = 'Pre';
+      else if (!comparison.post) phase = 'Post';
+    }
+
     setReadingForm({
       ...readingForm,
       reading_type: readingType,
+      reading_phase: phase,
       unit: unit,
       value: '',
       notes: '',
@@ -189,15 +344,19 @@ export default function EquipmentDetailScreen() {
     }
   };
 
-  // Filter readings by phase
-  const filteredReadings = details?.readings?.filter(r => {
-    if (activePhaseFilter === 'All') return true;
-    return r.reading_phase === activePhaseFilter;
-  }) || [];
+  const getDifferenceColor = (diff: number | null) => {
+    if (diff === null) return COLORS.grayDark;
+    if (diff > 0) return COLORS.green;
+    if (diff < 0) return COLORS.red;
+    return COLORS.gray;
+  };
 
-  // Group readings by phase for display
-  const preReadings = details?.readings?.filter(r => r.reading_phase === 'Pre') || [];
-  const postReadings = details?.readings?.filter(r => r.reading_phase === 'Post') || [];
+  const getDifferenceIcon = (diff: number | null) => {
+    if (diff === null) return 'remove';
+    if (diff > 0) return 'arrow-up';
+    if (diff < 0) return 'arrow-down';
+    return 'remove';
+  };
 
   if (loading || !details) {
     return (
@@ -258,137 +417,185 @@ export default function EquipmentDetailScreen() {
               <Text style={styles.detailValue}>{equipment.location}</Text>
             </View>
           )}
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Status</Text>
-            <View style={[styles.statusBadge, { backgroundColor: COLORS.green + '20' }]}>
-              <Text style={[styles.statusText, { color: COLORS.green }]}>{equipment.status}</Text>
-            </View>
-          </View>
         </View>
 
-        {/* Quick Reading Buttons - Pre/Post Selection */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Record Reading</Text>
-          <Text style={styles.sectionSubtitle}>Select reading type to capture Pre or Post measurements</Text>
-          <View style={styles.readingGrid}>
-            {READING_TYPES.map((rt) => (
-              <TouchableOpacity
-                key={rt.type}
-                style={styles.readingBtn}
-                onPress={() => openReadingModal(rt.type, rt.unit)}
-              >
-                <Ionicons name={rt.icon as any} size={28} color={COLORS.lime} />
-                <Text style={styles.readingBtnText}>{rt.type}</Text>
-                <Text style={styles.readingBtnUnit}>{rt.unit}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+        {/* Tab Toggle */}
+        <View style={styles.tabToggle}>
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'comparison' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('comparison')}
+          >
+            <Ionicons name="git-compare" size={18} color={activeTab === 'comparison' ? COLORS.navy : COLORS.gray} />
+            <Text style={[styles.tabBtnText, activeTab === 'comparison' && styles.tabBtnTextActive]}>
+              Comparison
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'history' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('history')}
+          >
+            <Ionicons name="time" size={18} color={activeTab === 'history' ? COLORS.navy : COLORS.gray} />
+            <Text style={[styles.tabBtnText, activeTab === 'history' && styles.tabBtnTextActive]}>
+              History
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Readings Summary */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Readings</Text>
-            <View style={styles.readingsSummary}>
-              <View style={styles.summaryBadge}>
-                <Text style={styles.summaryLabel}>Pre:</Text>
-                <Text style={styles.summaryValue}>{preReadings.length}</Text>
-              </View>
-              <View style={styles.summaryBadge}>
-                <Text style={styles.summaryLabel}>Post:</Text>
-                <Text style={styles.summaryValue}>{postReadings.length}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Phase Filter Tabs */}
-          <View style={styles.phaseFilter}>
-            {(['All', 'Pre', 'Post'] as const).map((phase) => (
-              <TouchableOpacity
-                key={phase}
-                style={[
-                  styles.phaseTab,
-                  activePhaseFilter === phase && styles.phaseTabActive,
-                  phase === 'Pre' && activePhaseFilter === phase && { backgroundColor: COLORS.blue },
-                  phase === 'Post' && activePhaseFilter === phase && { backgroundColor: COLORS.green },
-                ]}
-                onPress={() => setActivePhaseFilter(phase)}
-              >
-                <Text style={[
-                  styles.phaseTabText,
-                  activePhaseFilter === phase && styles.phaseTabTextActive
-                ]}>
-                  {phase}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Readings List */}
-          {filteredReadings.length > 0 ? (
-            filteredReadings.slice(0, 10).map((reading: any, index: number) => (
-              <View key={reading.id || index} style={styles.readingCard}>
-                <View style={styles.readingHeader}>
-                  <View style={styles.readingInfo}>
-                    <View style={[
-                      styles.phaseBadge,
-                      { backgroundColor: reading.reading_phase === 'Pre' ? COLORS.blue + '20' : COLORS.green + '20' }
-                    ]}>
-                      <Text style={[
-                        styles.phaseText,
-                        { color: reading.reading_phase === 'Pre' ? COLORS.blue : COLORS.green }
-                      ]}>
-                        {reading.reading_phase}
-                      </Text>
+        {/* Comparison View */}
+        {activeTab === 'comparison' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Pre vs Post Comparison</Text>
+            <Text style={styles.sectionSubtitle}>Tap a reading type to add Pre or Post values</Text>
+            
+            {comparisonData.map((comp, index) => {
+              const rtInfo = READING_TYPES.find(rt => rt.type === comp.type);
+              const hasData = comp.pre || comp.post;
+              const isComplete = comp.pre && comp.post;
+              
+              return (
+                <View key={comp.type} style={styles.comparisonCard}>
+                  {/* Reading Type Header */}
+                  <View style={styles.compHeader}>
+                    <View style={styles.compTitleRow}>
+                      <View style={[styles.compIcon, { backgroundColor: COLORS.lime + '20' }]}>
+                        <Ionicons name={rtInfo?.icon as any || 'analytics'} size={20} color={COLORS.lime} />
+                      </View>
+                      <View>
+                        <Text style={styles.compTitle}>{comp.type}</Text>
+                        <Text style={styles.compUnit}>{comp.unit}</Text>
+                      </View>
                     </View>
-                    <Text style={styles.readingType}>{reading.reading_type}</Text>
+                    {isComplete && (
+                      <View style={[styles.diffBadge, { backgroundColor: getDifferenceColor(comp.difference) + '20' }]}>
+                        <Ionicons 
+                          name={getDifferenceIcon(comp.difference)} 
+                          size={14} 
+                          color={getDifferenceColor(comp.difference)} 
+                        />
+                        <Text style={[styles.diffText, { color: getDifferenceColor(comp.difference) }]}>
+                          {comp.difference !== null ? (comp.difference > 0 ? '+' : '') + comp.difference : '—'}
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                  <View style={styles.readingValueContainer}>
-                    <Text style={styles.readingValue}>{reading.value}</Text>
-                    <Text style={styles.readingUnit}>{reading.unit}</Text>
-                  </View>
-                </View>
-                <Text style={styles.readingTime}>
-                  Captured: {reading.captured_at ? format(new Date(reading.captured_at), 'MMM d, yyyy h:mm a') : 
-                            reading.timestamp ? format(new Date(reading.timestamp), 'MMM d, yyyy h:mm a') : ''}
-                </Text>
-                {reading.notes && (
-                  <Text style={styles.readingNotes}>{reading.notes}</Text>
-                )}
-              </View>
-            ))
-          ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="analytics-outline" size={32} color={COLORS.grayDark} />
-              <Text style={styles.emptyText}>No {activePhaseFilter !== 'All' ? activePhaseFilter.toLowerCase() : ''} readings recorded yet</Text>
-            </View>
-          )}
-        </View>
 
-        {/* Service History */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Service History</Text>
-          {service_logs && service_logs.length > 0 ? (
-            service_logs.slice(0, 3).map((log: any, index: number) => (
-              <View key={log.id || index} style={styles.serviceCard}>
-                <View style={styles.serviceHeader}>
-                  <View style={styles.serviceTypeBadge}>
-                    <Text style={styles.serviceTypeText}>{log.service_type}</Text>
+                  {/* Pre/Post Values */}
+                  <View style={styles.compValues}>
+                    {/* Pre Value */}
+                    <TouchableOpacity 
+                      style={[styles.valueCard, styles.preCard]}
+                      onPress={() => openReadingModal(comp.type, comp.unit, 'Pre')}
+                    >
+                      <Text style={styles.valueLabel}>PRE</Text>
+                      {comp.pre ? (
+                        <>
+                          <Text style={styles.valueNumber}>{comp.pre.value}</Text>
+                          <Text style={styles.valueTime}>
+                            {format(new Date(comp.pre.captured_at), 'MMM d, h:mm a')}
+                          </Text>
+                        </>
+                      ) : (
+                        <View style={styles.addValueBtn}>
+                          <Ionicons name="add-circle" size={28} color={COLORS.blue} />
+                          <Text style={styles.addValueText}>Add Pre</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+
+                    {/* Arrow */}
+                    <View style={styles.arrowContainer}>
+                      <Ionicons name="arrow-forward" size={20} color={COLORS.grayDark} />
+                    </View>
+
+                    {/* Post Value */}
+                    <TouchableOpacity 
+                      style={[styles.valueCard, styles.postCard]}
+                      onPress={() => openReadingModal(comp.type, comp.unit, 'Post')}
+                    >
+                      <Text style={styles.valueLabel}>POST</Text>
+                      {comp.post ? (
+                        <>
+                          <Text style={styles.valueNumber}>{comp.post.value}</Text>
+                          <Text style={styles.valueTime}>
+                            {format(new Date(comp.post.captured_at), 'MMM d, h:mm a')}
+                          </Text>
+                        </>
+                      ) : (
+                        <View style={styles.addValueBtn}>
+                          <Ionicons name="add-circle" size={28} color={COLORS.green} />
+                          <Text style={styles.addValueText}>Add Post</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
                   </View>
-                  <Text style={styles.serviceDate}>
-                    {log.created_at ? format(new Date(log.created_at), 'MMM d, yyyy') : ''}
+
+                  {/* Difference Display when both values exist */}
+                  {isComplete && (
+                    <View style={styles.differenceRow}>
+                      <Text style={styles.differenceLabel}>Change:</Text>
+                      <View style={[styles.differenceValue, { backgroundColor: getDifferenceColor(comp.difference) + '15' }]}>
+                        <Ionicons 
+                          name={getDifferenceIcon(comp.difference)} 
+                          size={16} 
+                          color={getDifferenceColor(comp.difference)} 
+                        />
+                        <Text style={[styles.differenceNumber, { color: getDifferenceColor(comp.difference) }]}>
+                          {comp.difference !== null ? Math.abs(comp.difference) : 0} {comp.unit}
+                        </Text>
+                        <Text style={[styles.differencePercent, { color: getDifferenceColor(comp.difference) }]}>
+                          ({comp.pre && comp.difference !== null 
+                            ? ((comp.difference / comp.pre.value) * 100).toFixed(1) 
+                            : 0}%)
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/* History View */}
+        {activeTab === 'history' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Reading History</Text>
+            {readings && readings.length > 0 ? (
+              readings.map((reading: any, index: number) => (
+                <View key={reading.id || index} style={styles.historyCard}>
+                  <View style={styles.historyHeader}>
+                    <View style={styles.historyInfo}>
+                      <View style={[
+                        styles.phaseBadge,
+                        { backgroundColor: reading.reading_phase === 'Pre' ? COLORS.blue + '20' : COLORS.green + '20' }
+                      ]}>
+                        <Text style={[
+                          styles.phaseText,
+                          { color: reading.reading_phase === 'Pre' ? COLORS.blue : COLORS.green }
+                        ]}>
+                          {reading.reading_phase}
+                        </Text>
+                      </View>
+                      <Text style={styles.historyType}>{reading.reading_type}</Text>
+                    </View>
+                    <View style={styles.historyValueContainer}>
+                      <Text style={styles.historyValue}>{reading.value}</Text>
+                      <Text style={styles.historyUnit}>{reading.unit}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.historyTime}>
+                    {reading.captured_at ? format(new Date(reading.captured_at), 'MMM d, yyyy h:mm a') : ''}
                   </Text>
                 </View>
-                <Text style={styles.serviceDescription}>{log.description}</Text>
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="analytics-outline" size={32} color={COLORS.grayDark} />
+                <Text style={styles.emptyText}>No readings recorded yet</Text>
               </View>
-            ))
-          ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="document-text-outline" size={32} color={COLORS.grayDark} />
-              <Text style={styles.emptyText}>No service history</Text>
-            </View>
-          )}
-        </View>
+            )}
+          </View>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -451,26 +658,30 @@ export default function EquipmentDetailScreen() {
             {/* Date/Time Selection */}
             <View style={styles.dateTimeSection}>
               <Text style={styles.fieldLabel}>Capture Date & Time</Text>
-              <View style={styles.dateTimeRow}>
-                <TouchableOpacity 
-                  style={styles.dateTimeButton}
-                  onPress={() => setShowDatePicker(true)}
-                >
-                  <Ionicons name="calendar" size={20} color={COLORS.lime} />
-                  <Text style={styles.dateTimeText}>
-                    {format(captureDate, 'MMM d, yyyy')}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.dateTimeButton}
-                  onPress={() => setShowTimePicker(true)}
-                >
-                  <Ionicons name="time" size={20} color={COLORS.lime} />
-                  <Text style={styles.dateTimeText}>
-                    {format(captureDate, 'h:mm a')}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              {Platform.OS === 'web' ? (
+                <WebDateTimePicker date={captureDate} onDateChange={setCaptureDate} />
+              ) : (
+                <View style={styles.dateTimeRow}>
+                  <TouchableOpacity 
+                    style={styles.dateTimeButton}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Ionicons name="calendar" size={20} color={COLORS.lime} />
+                    <Text style={styles.dateTimeText}>
+                      {format(captureDate, 'MMM d, yyyy')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.dateTimeButton}
+                    onPress={() => setShowTimePicker(true)}
+                  >
+                    <Ionicons name="time" size={20} color={COLORS.lime} />
+                    <Text style={styles.dateTimeText}>
+                      {format(captureDate, 'h:mm a')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
 
             {/* Value Input */}
@@ -500,7 +711,10 @@ export default function EquipmentDetailScreen() {
               multiline
             />
 
-            <TouchableOpacity style={styles.submitButton} onPress={submitReading}>
+            <TouchableOpacity style={[
+              styles.submitButton,
+              { backgroundColor: readingForm.reading_phase === 'Pre' ? COLORS.blue : COLORS.green }
+            ]} onPress={submitReading}>
               <Text style={styles.submitButtonText}>
                 Save {readingForm.reading_phase} Reading
               </Text>
@@ -508,8 +722,8 @@ export default function EquipmentDetailScreen() {
           </View>
         </KeyboardAvoidingView>
 
-        {/* Date Picker */}
-        {showDatePicker && (
+        {/* Native Date Picker (iOS/Android only) */}
+        {Platform.OS !== 'web' && showDatePicker && DateTimePicker && (
           <DateTimePicker
             value={captureDate}
             mode="date"
@@ -519,8 +733,8 @@ export default function EquipmentDetailScreen() {
           />
         )}
 
-        {/* Time Picker */}
-        {showTimePicker && (
+        {/* Native Time Picker (iOS/Android only) */}
+        {Platform.OS !== 'web' && showTimePicker && DateTimePicker && (
           <DateTimePicker
             value={captureDate}
             mode="time"
@@ -579,19 +793,19 @@ const styles = StyleSheet.create({
   },
   equipmentHeader: {
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingVertical: 20,
   },
   equipmentIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
+    width: 70,
+    height: 70,
+    borderRadius: 18,
     backgroundColor: COLORS.lime + '20',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   equipmentName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
     color: COLORS.white,
     marginBottom: 8,
@@ -600,21 +814,21 @@ const styles = StyleSheet.create({
   },
   typeBadge: {
     backgroundColor: COLORS.lime + '20',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 14,
   },
   typeText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: COLORS.lime,
   },
   detailsCard: {
     backgroundColor: COLORS.navyLight,
     marginHorizontal: 20,
-    borderRadius: 16,
-    padding: 16,
-    gap: 14,
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
     borderWidth: 1,
     borderColor: '#2d4a6f',
   },
@@ -624,214 +838,246 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   detailLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.grayDark,
   },
   detailValue: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.white,
     fontWeight: '500',
   },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  statusText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  section: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-  },
-  sectionHeader: {
+  tabToggle: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.white,
-    marginBottom: 6,
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    color: COLORS.grayDark,
-    marginBottom: 14,
-  },
-  readingsSummary: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  summaryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: COLORS.grayDark,
-  },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.lime,
-  },
-  readingGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    marginHorizontal: 20,
+    marginTop: 20,
     gap: 10,
   },
-  readingBtn: {
-    width: '48%',
-    backgroundColor: COLORS.navyLight,
-    borderRadius: 14,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#2d4a6f',
-  },
-  readingBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.white,
-    marginTop: 10,
-    textAlign: 'center',
-  },
-  readingBtnUnit: {
-    fontSize: 12,
-    color: COLORS.grayDark,
-    marginTop: 2,
-  },
-  phaseFilter: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 14,
-  },
-  phaseTab: {
+  tabBtn: {
     flex: 1,
-    paddingVertical: 10,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
     backgroundColor: COLORS.navyLight,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#2d4a6f',
   },
-  phaseTabActive: {
+  tabBtnActive: {
     backgroundColor: COLORS.lime,
     borderColor: COLORS.lime,
   },
-  phaseTabText: {
+  tabBtnText: {
     fontSize: 14,
     fontWeight: '500',
     color: COLORS.gray,
   },
-  phaseTabTextActive: {
+  tabBtnTextActive: {
     color: COLORS.navy,
   },
-  readingCard: {
+  section: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.white,
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: COLORS.grayDark,
+    marginBottom: 14,
+  },
+  comparisonCard: {
     backgroundColor: COLORS.navyLight,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  compHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  compTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  compIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  compUnit: {
+    fontSize: 12,
+    color: COLORS.grayDark,
+  },
+  diffBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  diffText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  compValues: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  valueCard: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    minHeight: 90,
+    justifyContent: 'center',
+  },
+  preCard: {
+    backgroundColor: COLORS.blue + '15',
+    borderWidth: 1,
+    borderColor: COLORS.blue + '30',
+  },
+  postCard: {
+    backgroundColor: COLORS.green + '15',
+    borderWidth: 1,
+    borderColor: COLORS.green + '30',
+  },
+  valueLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.gray,
+    marginBottom: 4,
+    letterSpacing: 1,
+  },
+  valueNumber: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  valueTime: {
+    fontSize: 10,
+    color: COLORS.grayDark,
+    marginTop: 4,
+  },
+  addValueBtn: {
+    alignItems: 'center',
+  },
+  addValueText: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginTop: 4,
+  },
+  arrowContainer: {
+    paddingHorizontal: 10,
+  },
+  differenceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#2d4a6f',
+  },
+  differenceLabel: {
+    fontSize: 13,
+    color: COLORS.gray,
+  },
+  differenceValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  differenceNumber: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  differencePercent: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  historyCard: {
+    backgroundColor: COLORS.navyLight,
+    borderRadius: 10,
+    padding: 12,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: '#2d4a6f',
   },
-  readingHeader: {
+  historyHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  readingInfo: {
+  historyInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   phaseBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 5,
   },
   phaseText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
-  readingType: {
-    fontSize: 14,
+  historyType: {
+    fontSize: 13,
     fontWeight: '500',
     color: COLORS.white,
   },
-  readingTime: {
-    fontSize: 12,
-    color: COLORS.grayDark,
-    marginBottom: 4,
-  },
-  readingNotes: {
-    fontSize: 13,
-    color: COLORS.gray,
-    fontStyle: 'italic',
-  },
-  readingValueContainer: {
+  historyValueContainer: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 4,
+    gap: 3,
   },
-  readingValue: {
-    fontSize: 22,
+  historyValue: {
+    fontSize: 18,
     fontWeight: '700',
     color: COLORS.lime,
   },
-  readingUnit: {
-    fontSize: 13,
+  historyUnit: {
+    fontSize: 11,
     color: COLORS.gray,
   },
-  serviceCard: {
-    backgroundColor: COLORS.navyLight,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#2d4a6f',
-  },
-  serviceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  serviceTypeBadge: {
-    backgroundColor: COLORS.lime + '20',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  serviceTypeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.lime,
-  },
-  serviceDate: {
-    fontSize: 12,
+  historyTime: {
+    fontSize: 11,
     color: COLORS.grayDark,
-  },
-  serviceDescription: {
-    fontSize: 14,
-    color: COLORS.gray,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingVertical: 30,
     backgroundColor: COLORS.navyLight,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#2d4a6f',
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.grayDark,
     marginTop: 8,
   },
@@ -851,21 +1097,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 18,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     color: COLORS.white,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: COLORS.gray,
     marginBottom: 8,
   },
   phaseSelection: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   phaseButtons: {
     flexDirection: 'row',
@@ -900,7 +1146,7 @@ const styles = StyleSheet.create({
     color: COLORS.white,
   },
   dateTimeSection: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   dateTimeRow: {
     flexDirection: 'row',
@@ -911,56 +1157,55 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 14,
+    gap: 8,
+    paddingVertical: 12,
     backgroundColor: COLORS.navy,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#2d4a6f',
   },
   dateTimeText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     color: COLORS.white,
   },
   inputRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   modalInput: {
     backgroundColor: COLORS.navy,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
+    borderRadius: 10,
+    padding: 14,
+    fontSize: 15,
     color: COLORS.white,
     borderWidth: 1,
     borderColor: '#2d4a6f',
   },
   valueInput: {
     flex: 1,
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '600',
   },
   unitDisplay: {
     backgroundColor: COLORS.lime + '20',
-    borderRadius: 12,
-    paddingHorizontal: 20,
+    borderRadius: 10,
+    paddingHorizontal: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   unitText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: COLORS.lime,
   },
   notesInput: {
-    height: 80,
+    height: 70,
     textAlignVertical: 'top',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   submitButton: {
-    backgroundColor: COLORS.lime,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -968,6 +1213,21 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.navy,
+    color: COLORS.white,
+  },
+  webDateTimeWrapper: {
+    flex: 1,
+    gap: 6,
+  },
+  webDateTimeIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  webDateTimeLabel: {
+    fontSize: 12,
+    color: COLORS.lime,
+    fontWeight: '500',
   },
 });

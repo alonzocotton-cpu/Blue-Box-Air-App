@@ -353,3 +353,5 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: "Initial implementation complete. All backend APIs and frontend screens are implemented. Need to test all API endpoints. Frontend has been verified through screenshots - login, home, work orders, customers, cases, profile screens all working."
+  - agent: "main"
+    message: "Fixed date/time picker on web. Replaced @react-native-community/datetimepicker (native-only) with cross-platform solution: HTML native inputs on web, keeps native pickers on iOS/Android. Verified: date input, time input, value entry, and reading submission all working on web preview."

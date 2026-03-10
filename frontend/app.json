@@ -57,7 +57,9 @@
         {
           "faceIDPermission": "Allow Blue Box Air Tech to use Face ID for quick login"
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
