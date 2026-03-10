@@ -61,6 +61,8 @@ export default function ProfileScreen() {
   });
   const [newSkill, setNewSkill] = useState('');
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const [activeProfileTab, setActiveProfileTab] = useState<'profile' | 'resources'>('profile');
+  const [expandedResource, setExpandedResource] = useState<string | null>(null);
 
   useEffect(() => {
     loadProfile();
@@ -247,11 +249,33 @@ export default function ProfileScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.brandText}>BLUE BOX</Text>
-        {!editing && (
+        {activeProfileTab === 'profile' && !editing && (
           <TouchableOpacity onPress={() => setEditing(true)}>
             <Ionicons name="create-outline" size={24} color={COLORS.lime} />
           </TouchableOpacity>
         )}
+      </View>
+
+      {/* Profile / Resources Tab Switcher */}
+      <View style={styles.profileTabSwitcher}>
+        <TouchableOpacity
+          style={[styles.profileTabBtn, activeProfileTab === 'profile' && styles.profileTabBtnActive]}
+          onPress={() => setActiveProfileTab('profile')}
+        >
+          <Ionicons name="person" size={18} color={activeProfileTab === 'profile' ? COLORS.navy : COLORS.gray} />
+          <Text style={[styles.profileTabBtnText, activeProfileTab === 'profile' && styles.profileTabBtnTextActive]}>
+            Profile
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.profileTabBtn, activeProfileTab === 'resources' && styles.profileTabBtnActive]}
+          onPress={() => setActiveProfileTab('resources')}
+        >
+          <Ionicons name="library" size={18} color={activeProfileTab === 'resources' ? COLORS.navy : COLORS.gray} />
+          <Text style={[styles.profileTabBtnText, activeProfileTab === 'resources' && styles.profileTabBtnTextActive]}>
+            Resources
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView
@@ -259,6 +283,209 @@ export default function ProfileScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {activeProfileTab === 'resources' ? (
+            /* ============ Resources Tab ============ */
+            <View style={styles.resourcesContainer}>
+              <Text style={styles.resourcesTitle}>Blue Box Air Resources</Text>
+              <Text style={styles.resourcesSubtitle}>Training materials, guides, and reference documents</Text>
+
+              {/* Training Video */}
+              <TouchableOpacity
+                style={styles.resourceCard}
+                onPress={() => setExpandedResource(expandedResource === 'training' ? null : 'training')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.resourceCardHeader}>
+                  <View style={[styles.resourceIconBox, { backgroundColor: '#3b82f620' }]}>
+                    <Ionicons name="videocam" size={24} color="#3b82f6" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.resourceCardTitle}>Training Video</Text>
+                    <Text style={styles.resourceCardSub}>Equipment operation and best practices</Text>
+                  </View>
+                  <Ionicons name={expandedResource === 'training' ? 'chevron-up' : 'chevron-down'} size={22} color={COLORS.grayDark} />
+                </View>
+                {expandedResource === 'training' && (
+                  <View style={styles.resourceCardBody}>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="play-circle" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Coil Cleaning Fundamentals</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="play-circle" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Equipment Safety Protocols</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="play-circle" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Pre/Post Service Readings Guide</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="play-circle" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Client Communication Skills</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Troubleshooting Blue Box */}
+              <TouchableOpacity
+                style={styles.resourceCard}
+                onPress={() => setExpandedResource(expandedResource === 'troubleshoot' ? null : 'troubleshoot')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.resourceCardHeader}>
+                  <View style={[styles.resourceIconBox, { backgroundColor: '#ef444420' }]}>
+                    <Ionicons name="build" size={24} color="#ef4444" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.resourceCardTitle}>Troubleshooting Blue Box</Text>
+                    <Text style={styles.resourceCardSub}>Diagnostic guides and common fixes</Text>
+                  </View>
+                  <Ionicons name={expandedResource === 'troubleshoot' ? 'chevron-up' : 'chevron-down'} size={22} color={COLORS.grayDark} />
+                </View>
+                {expandedResource === 'troubleshoot' && (
+                  <View style={styles.resourceCardBody}>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="document-text" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Differential Pressure Issues</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="document-text" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Airflow Troubleshooting (FPM)</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="document-text" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Common Error Codes</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="document-text" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Escalation Procedures</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Automation Install */}
+              <TouchableOpacity
+                style={styles.resourceCard}
+                onPress={() => setExpandedResource(expandedResource === 'automation' ? null : 'automation')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.resourceCardHeader}>
+                  <View style={[styles.resourceIconBox, { backgroundColor: '#a3e63520' }]}>
+                    <Ionicons name="hardware-chip" size={24} color={COLORS.lime} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.resourceCardTitle}>Automation Install</Text>
+                    <Text style={styles.resourceCardSub}>Bio-Automation setup and configuration</Text>
+                  </View>
+                  <Ionicons name={expandedResource === 'automation' ? 'chevron-up' : 'chevron-down'} size={22} color={COLORS.grayDark} />
+                </View>
+                {expandedResource === 'automation' && (
+                  <View style={styles.resourceCardBody}>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="list" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Installation Checklist</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="document-text" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Wiring Diagrams</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="document-text" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Sensor Calibration Guide</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="play-circle" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Step-by-Step Install Video</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Pricing Model */}
+              <TouchableOpacity
+                style={styles.resourceCard}
+                onPress={() => setExpandedResource(expandedResource === 'pricing' ? null : 'pricing')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.resourceCardHeader}>
+                  <View style={[styles.resourceIconBox, { backgroundColor: '#f59e0b20' }]}>
+                    <Ionicons name="pricetag" size={24} color="#f59e0b" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.resourceCardTitle}>Pricing Model</Text>
+                    <Text style={styles.resourceCardSub}>Service rates and cost estimator</Text>
+                  </View>
+                  <Ionicons name={expandedResource === 'pricing' ? 'chevron-up' : 'chevron-down'} size={22} color={COLORS.grayDark} />
+                </View>
+                {expandedResource === 'pricing' && (
+                  <View style={styles.resourceCardBody}>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="cash" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Standard Service Rates</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="calculator" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Cost Estimator Tool</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="document-text" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Contract Pricing Guide</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="trending-up" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Upsell Opportunities</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* FAQs */}
+              <TouchableOpacity
+                style={styles.resourceCard}
+                onPress={() => setExpandedResource(expandedResource === 'faqs' ? null : 'faqs')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.resourceCardHeader}>
+                  <View style={[styles.resourceIconBox, { backgroundColor: '#8b5cf620' }]}>
+                    <Ionicons name="help-circle" size={24} color="#8b5cf6" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.resourceCardTitle}>FAQs</Text>
+                    <Text style={styles.resourceCardSub}>Frequently asked questions</Text>
+                  </View>
+                  <Ionicons name={expandedResource === 'faqs' ? 'chevron-up' : 'chevron-down'} size={22} color={COLORS.grayDark} />
+                </View>
+                {expandedResource === 'faqs' && (
+                  <View style={styles.resourceCardBody}>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>How to submit service reports?</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>What are acceptable pressure ranges?</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>How to connect to Salesforce?</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Scheduling and dispatch process</Text>
+                    </View>
+                    <View style={styles.resourceItem}>
+                      <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.lime} />
+                      <Text style={styles.resourceItemText}>Emergency contact protocol</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : (
+          /* ============ Profile Tab ============ */
+          <View>
           {/* Profile Header */}
           <View style={styles.profileHeader}>
             <TouchableOpacity 
@@ -523,6 +750,8 @@ export default function ProfileScreen() {
                 <Text style={styles.footerSubtext}>Coil Management Solutions</Text>
               </View>
             </>
+          )}
+          </View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -820,5 +1049,101 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.grayDark,
     marginTop: 4,
+  },
+  // Profile Tab Switcher
+  profileTabSwitcher: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.navyLight,
+    marginHorizontal: 20,
+    marginTop: 12,
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  profileTabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  profileTabBtnActive: {
+    backgroundColor: COLORS.lime,
+  },
+  profileTabBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.gray,
+  },
+  profileTabBtnTextActive: {
+    color: COLORS.navy,
+  },
+  // Resources
+  resourcesContainer: {
+    padding: 20,
+  },
+  resourcesTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginBottom: 4,
+  },
+  resourcesSubtitle: {
+    fontSize: 13,
+    color: COLORS.grayDark,
+    marginBottom: 20,
+  },
+  resourceCard: {
+    backgroundColor: COLORS.navyLight,
+    borderRadius: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+    overflow: 'hidden',
+  },
+  resourceCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 14,
+  },
+  resourceIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resourceCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  resourceCardSub: {
+    fontSize: 12,
+    color: COLORS.grayDark,
+    marginTop: 2,
+  },
+  resourceCardBody: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#2d4a6f',
+    paddingTop: 12,
+    gap: 10,
+  },
+  resourceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 6,
+  },
+  resourceItemText: {
+    fontSize: 14,
+    color: COLORS.white,
+    flex: 1,
   },
 });
