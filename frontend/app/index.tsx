@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as LocalAuthentication from 'expo-local-authentication';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -26,9 +28,10 @@ const COLORS = {
   white: '#ffffff',
   gray: '#94a3b8',
   grayDark: '#64748b',
+  google: '#4285F4',
 };
 
-// Blue Box Air Logo Component
+// Blue Box Air Logo Component - Crisp SVG version
 const BlueBoxLogo = ({ size = 100 }: { size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 100 100">
     {/* Outer rounded rectangle with white border */}
@@ -41,26 +44,26 @@ const BlueBoxLogo = ({ size = 100 }: { size?: number }) => (
       ry="18"
       fill={COLORS.navyLight}
       stroke={COLORS.white}
-      strokeWidth="4"
+      strokeWidth="3"
     />
-    {/* Left white chevron (pointing right) */}
+    {/* Left white chevron */}
     <Path
-      d="M 18 20 L 35 50 L 18 80 L 28 80 L 45 50 L 28 20 Z"
+      d="M 20 18 L 36 18 L 50 50 L 36 82 L 20 82 L 34 50 Z"
       fill={COLORS.white}
     />
-    {/* Right white chevron (pointing left) */}
+    {/* Right white chevron */}
     <Path
-      d="M 82 20 L 65 50 L 82 80 L 72 80 L 55 50 L 72 20 Z"
+      d="M 64 18 L 80 18 L 66 50 L 80 82 L 64 82 L 50 50 Z"
       fill={COLORS.white}
     />
-    {/* Left lime chevron (part of X) */}
+    {/* Left lime chevron (X) */}
     <Path
-      d="M 32 20 L 50 50 L 32 80 L 42 80 L 60 50 L 42 20 Z"
+      d="M 32 18 L 46 18 L 50 28 L 46 82 L 32 82 L 50 50 Z"
       fill={COLORS.lime}
     />
-    {/* Right lime chevron (part of X) */}
+    {/* Right lime chevron (X) */}
     <Path
-      d="M 68 20 L 50 50 L 68 80 L 58 80 L 40 50 L 58 20 Z"
+      d="M 54 18 L 68 18 L 50 50 L 68 82 L 54 82 L 50 72 Z"
       fill={COLORS.lime}
     />
   </Svg>
@@ -71,6 +74,84 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [hasSavedCredentials, setHasSavedCredentials] = useState(false);
+
+  useEffect(() => {
+    checkBiometricSupport();
+    loadSavedCredentials();
+  }, []);
+
+  const checkBiometricSupport = async () => {
+    try {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      setBiometricAvailable(compatible && enrolled);
+    } catch (error) {
+      console.error('Biometric check error:', error);
+    }
+  };
+
+  const loadSavedCredentials = async () => {
+    try {
+      const savedUsername = await AsyncStorage.getItem('savedUsername');
+      const savedRememberMe = await AsyncStorage.getItem('rememberMe');
+      
+      if (savedUsername && savedRememberMe === 'true') {
+        setUsername(savedUsername);
+        setRememberMe(true);
+        setHasSavedCredentials(true);
+      }
+    } catch (error) {
+      console.error('Load credentials error:', error);
+    }
+  };
+
+  const handleBiometricLogin = async () => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Login with Face ID',
+        fallbackLabel: 'Use Password',
+        cancelLabel: 'Cancel',
+      });
+
+      if (result.success) {
+        // Get saved credentials
+        const savedToken = await AsyncStorage.getItem('authToken');
+        const savedTechnician = await AsyncStorage.getItem('technician');
+        
+        if (savedToken && savedTechnician) {
+          router.replace('/(tabs)/projects');
+        } else {
+          // No saved session, do regular login
+          Alert.alert('Info', 'Please login with your credentials first');
+        }
+      }
+    } catch (error) {
+      console.error('Biometric auth error:', error);
+      Alert.alert('Error', 'Biometric authentication failed');
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+    try {
+      // For native app, we'll use a deep link scheme
+      const redirectUrl = 'fieldtechconnect://auth/callback';
+      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+      
+      const supported = await Linking.canOpenURL(authUrl);
+      if (supported) {
+        await Linking.openURL(authUrl);
+      } else {
+        Alert.alert('Error', 'Cannot open Google login');
+      }
+    } catch (error) {
+      console.error('Google login error:', error);
+      Alert.alert('Error', 'Google login failed');
+    }
+  };
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
@@ -91,6 +172,16 @@ export default function LoginScreen() {
       if (data.success) {
         await AsyncStorage.setItem('authToken', data.token);
         await AsyncStorage.setItem('technician', JSON.stringify(data.technician));
+        
+        // Save credentials if Remember Me is checked
+        if (rememberMe) {
+          await AsyncStorage.setItem('savedUsername', username);
+          await AsyncStorage.setItem('rememberMe', 'true');
+        } else {
+          await AsyncStorage.removeItem('savedUsername');
+          await AsyncStorage.setItem('rememberMe', 'false');
+        }
+        
         router.replace('/(tabs)/projects');
       } else {
         Alert.alert('Login Failed', data.message || 'Invalid credentials');
@@ -113,7 +204,7 @@ export default function LoginScreen() {
           {/* Logo and Header */}
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <BlueBoxLogo size={100} />
+              <BlueBoxLogo size={110} />
             </View>
             <Text style={styles.title}>BLUE BOX</Text>
             <Text style={styles.subtitle}>Air Tech</Text>
@@ -153,6 +244,18 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* Remember Me */}
+            <TouchableOpacity 
+              style={styles.rememberMeContainer}
+              onPress={() => setRememberMe(!rememberMe)}
+            >
+              <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                {rememberMe && <Ionicons name="checkmark" size={14} color={COLORS.navy} />}
+              </View>
+              <Text style={styles.rememberMeText}>Remember me</Text>
+            </TouchableOpacity>
+
+            {/* Salesforce Login Button */}
             <TouchableOpacity
               style={[styles.loginButton, loading && styles.loginButtonDisabled]}
               onPress={handleLogin}
@@ -167,6 +270,42 @@ export default function LoginScreen() {
                 </>
               )}
             </TouchableOpacity>
+
+            {/* Divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Alternative Login Options */}
+            <View style={styles.alternativeLogins}>
+              {/* Google Login */}
+              <TouchableOpacity 
+                style={styles.socialButton}
+                onPress={handleGoogleLogin}
+              >
+                <Ionicons name="logo-google" size={22} color={COLORS.google} />
+                <Text style={styles.socialButtonText}>Google</Text>
+              </TouchableOpacity>
+
+              {/* Face ID / Touch ID */}
+              {biometricAvailable && hasSavedCredentials && (
+                <TouchableOpacity 
+                  style={styles.socialButton}
+                  onPress={handleBiometricLogin}
+                >
+                  <Ionicons 
+                    name={Platform.OS === 'ios' ? "scan-outline" : "finger-print-outline"} 
+                    size={22} 
+                    color={COLORS.lime} 
+                  />
+                  <Text style={styles.socialButtonText}>
+                    {Platform.OS === 'ios' ? 'Face ID' : 'Touch ID'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {/* Footer Info */}
@@ -197,10 +336,10 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 40,
   },
   logoContainer: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   title: {
     fontSize: 32,
@@ -215,7 +354,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   form: {
-    marginBottom: 32,
+    marginBottom: 24,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -223,7 +362,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.navyLight,
     borderRadius: 12,
     paddingHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#2d4a6f',
   },
@@ -236,6 +375,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.white,
   },
+  rememberMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    marginTop: 4,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: COLORS.gray,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.lime,
+    borderColor: COLORS.lime,
+  },
+  rememberMeText: {
+    fontSize: 14,
+    color: COLORS.gray,
+  },
   loginButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -244,7 +407,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 16,
     gap: 10,
-    marginTop: 8,
   },
   loginButtonDisabled: {
     opacity: 0.7,
@@ -253,6 +415,43 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     color: COLORS.navy,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#2d4a6f',
+  },
+  dividerText: {
+    color: COLORS.grayDark,
+    paddingHorizontal: 16,
+    fontSize: 14,
+  },
+  alternativeLogins: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  socialButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.navyLight,
+    borderRadius: 12,
+    paddingVertical: 14,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  socialButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: COLORS.white,
   },
   footer: {
     alignItems: 'center',

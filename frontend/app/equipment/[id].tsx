@@ -41,7 +41,7 @@ interface EquipmentDetails {
 }
 
 const READING_TYPES = [
-  { type: 'Pressure', unit: 'PSI', icon: 'speedometer' },
+  { type: 'Differential Pressure', unit: 'inWC', icon: 'speedometer' },
   { type: 'Airflow', unit: 'CFM', icon: 'swap-horizontal' },
   { type: 'Temperature', unit: '°F', icon: 'thermometer' },
   { type: 'Humidity', unit: '%', icon: 'water' },

@@ -1,0 +1,19 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="200" fill="#0f2744"/>
+  
+  <!-- Inner rounded rectangle with white border -->
+  <rect x="112" y="112" width="800" height="800" rx="160" fill="#1a365d" stroke="#ffffff" stroke-width="40"/>
+  
+  <!-- Left white chevron -->
+  <path d="M 220 200 L 400 512 L 220 824 L 320 824 L 500 512 L 320 200 Z" fill="#ffffff"/>
+  
+  <!-- Right white chevron -->
+  <path d="M 804 200 L 624 512 L 804 824 L 704 824 L 524 512 L 704 200 Z" fill="#ffffff"/>
+  
+  <!-- Left lime chevron (X part) -->
+  <path d="M 340 200 L 512 512 L 340 824 L 440 824 L 612 512 L 440 200 Z" fill="#c5d93d"/>
+  
+  <!-- Right lime chevron (X part) -->
+  <path d="M 684 200 L 512 512 L 684 824 L 584 824 L 412 512 L 584 200 Z" fill="#c5d93d"/>
+</svg>
