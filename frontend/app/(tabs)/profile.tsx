@@ -764,7 +764,7 @@ export default function ProfileScreen() {
                   <MenuItem
                     icon="information-circle-outline"
                     title="About"
-                    subtitle="Blue Box Air v1.0.0"
+                    subtitle="Blue Box Air, Inc Tech App v1.0.0"
                     showArrow={false}
                     color={COLORS.white}
                   />

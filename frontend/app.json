@@ -1,32 +1,44 @@
 {
   "expo": {
-    "name": "Blue Box Air Tech",
-    "slug": "blue-box-air-tech",
+    "name": "Blue Box Air, Inc Tech App",
+    "slug": "blue-box-air-inc-tech-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "fieldtechconnect",
-    "userInterfaceStyle": "automatic",
+    "icon": "./assets/logo.jpeg",
+    "scheme": "blueboxairtech",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "owner": "blueboxair",
+    "description": "Blue Box Air, Inc. Technician App — Coil management, equipment service readings, project reports, and team collaboration for field technicians.",
+    "githubUrl": "",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.blueboxair.tech",
+      "bundleIdentifier": "com.blueboxair.techapp",
+      "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "Capture equipment photos and record service videos",
         "NSPhotoLibraryUsageDescription": "Upload photos and videos from your gallery",
         "NSMicrophoneUsageDescription": "Record audio with equipment service videos",
         "NSLocationWhenInUseUsageDescription": "Track your location for service visits",
         "NSLocationAlwaysUsageDescription": "Track location during service visits",
-        "NSFaceIDUsageDescription": "Use Face ID to quickly login to the app"
+        "NSFaceIDUsageDescription": "Use Face ID to quickly login to the app",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": []
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/logo.jpeg",
         "backgroundColor": "#0f2744"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.blueboxair.tech",
+      "package": "com.blueboxair.techapp",
+      "versionCode": 1,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
@@ -43,14 +55,14 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/logo.jpeg"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/logo.jpeg",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#0f2744"
@@ -59,7 +71,7 @@
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Allow Blue Box Air Tech to use Face ID for quick login"
+          "faceIDPermission": "Allow Blue Box Air, Inc Tech App to use Face ID for quick login"
         }
       ],
       "@react-native-community/datetimepicker",
@@ -67,6 +79,17 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
+    },
+    "updates": {
+      "url": ""
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }

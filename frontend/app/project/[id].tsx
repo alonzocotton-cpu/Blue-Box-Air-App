@@ -202,7 +202,7 @@ export default function ProjectDetailScreen() {
           </head>
           <body>
             <div class="header">
-              <h1>BLUE BOX AIR</h1>
+              <h1>BLUE BOX AIR, INC.</h1>
               <h2>${project.name || 'Project Report'}</h2>
               <p>Report ID: ${reportData.report_id || 'N/A'}</p>
               <p>Generated: ${reportData.generated_at ? format(new Date(reportData.generated_at), 'MMM d, yyyy h:mm a') : 'Now'}</p>
@@ -239,7 +239,7 @@ export default function ProjectDetailScreen() {
             ${photosHTML}
 
             <div class="footer">
-              <p>Blue Box Air — Technician Service Report</p>
+              <p>Blue Box Air, Inc. — Technician Service Report</p>
               <p>This report was auto-generated from equipment service data</p>
             </div>
           </body>
@@ -453,7 +453,7 @@ export default function ProjectDetailScreen() {
     const project = details?.project;
     if (!project) return;
     
-    const shareText = `Blue Box Air - Project: ${project.name}\nClient: ${project.client_name}\nAddress: ${project.address || 'N/A'}\nStatus: ${project.status}\n\nShared from Blue Box Air Technician App`;
+    const shareText = `Blue Box Air, Inc. - Project: ${project.name}\nClient: ${project.client_name}\nAddress: ${project.address || 'N/A'}\nStatus: ${project.status}\n\nShared from Blue Box Air, Inc Tech App`;
     
     if (Platform.OS === 'web') {
       if (navigator.share) {

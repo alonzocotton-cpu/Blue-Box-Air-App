@@ -180,7 +180,7 @@ export default function LoginScreen() {
               <BlueBoxLogo size={110} />
             </View>
             <Text style={styles.title}>BLUE BOX</Text>
-            <Text style={styles.subtitle}>Air Tech</Text>
+            <Text style={styles.subtitle}>Air, Inc. Tech App</Text>
           </View>
 
           {/* Login Form */}
