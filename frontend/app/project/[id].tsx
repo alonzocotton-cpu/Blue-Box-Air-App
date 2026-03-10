@@ -17,6 +17,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { format } from 'date-fns';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -59,6 +61,7 @@ export default function ProjectDetailScreen() {
   // Report state
   const [reportData, setReportData] = useState<any>(null);
   const [reportLoading, setReportLoading] = useState(false);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
 
   const fetchDetails = async () => {
     try {
@@ -97,6 +100,170 @@ export default function ProjectDetailScreen() {
       fetchReport();
     }
   }, [activeTab]);
+
+  const generatePDF = async () => {
+    if (!reportData) return;
+    setPdfGenerating(true);
+    try {
+      const project = reportData.project || {};
+      const summary = reportData.summary || {};
+      const sfStatus = reportData.salesforce_sync_status || {};
+      
+      // Build equipment rows HTML
+      let equipmentHTML = '';
+      (reportData.equipment_reports || []).forEach((eqReport: any) => {
+        const eq = eqReport.equipment || {};
+        let readingsRows = '';
+        
+        if (eqReport.has_data) {
+          (eqReport.comparisons || []).forEach((comp: any) => {
+            if (!comp.pre && !comp.post) return;
+            const diffColor = comp.difference === null ? '#999' 
+              : comp.difference > 0 ? '#4CAF50' 
+              : comp.difference < 0 ? '#F44336' 
+              : '#999';
+            const diffDisplay = comp.difference !== null 
+              ? `<span style="color:${diffColor};font-weight:bold">${comp.difference > 0 ? '+' : ''}${comp.difference} ${comp.unit}</span>` 
+              : '—';
+            const pctDisplay = comp.percent_change !== null
+              ? `<br/><span style="color:${diffColor};font-size:11px">(${comp.percent_change > 0 ? '+' : ''}${comp.percent_change}%)</span>`
+              : '';
+            
+            readingsRows += `
+              <tr>
+                <td style="padding:8px 10px;border-bottom:1px solid #1a3a5c;font-weight:500;">${comp.reading_type}<br/><span style="color:#888;font-size:11px">${comp.unit}</span></td>
+                <td style="padding:8px 10px;border-bottom:1px solid #1a3a5c;text-align:center;font-weight:600">${comp.pre ? comp.pre.value : '—'}</td>
+                <td style="padding:8px 10px;border-bottom:1px solid #1a3a5c;text-align:center;font-weight:600">${comp.post ? comp.post.value : '—'}</td>
+                <td style="padding:8px 10px;border-bottom:1px solid #1a3a5c;text-align:center">${diffDisplay}${pctDisplay}</td>
+              </tr>`;
+          });
+        } else {
+          readingsRows = '<tr><td colspan="4" style="text-align:center;padding:16px;color:#888;font-style:italic">No readings recorded</td></tr>';
+        }
+        
+        equipmentHTML += `
+          <div style="background:#0d2137;border-radius:10px;padding:16px;margin-bottom:16px;border:1px solid #1a3a5c">
+            <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:4px">${eq.name || 'Unknown'}</div>
+            <div style="font-size:12px;color:#888;margin-bottom:12px">${eq.equipment_type || ''} • ${eq.location || 'N/A'}</div>
+            <table style="width:100%;border-collapse:collapse;color:#fff;font-size:13px">
+              <thead>
+                <tr style="background:#0a1929">
+                  <th style="padding:8px 10px;text-align:left;font-weight:700;color:#888;text-transform:uppercase;font-size:11px">Metric</th>
+                  <th style="padding:8px 10px;text-align:center;font-weight:700;color:#888;text-transform:uppercase;font-size:11px">Pre</th>
+                  <th style="padding:8px 10px;text-align:center;font-weight:700;color:#888;text-transform:uppercase;font-size:11px">Post</th>
+                  <th style="padding:8px 10px;text-align:center;font-weight:700;color:#888;text-transform:uppercase;font-size:11px">Change</th>
+                </tr>
+              </thead>
+              <tbody>${readingsRows}</tbody>
+            </table>
+          </div>`;
+      });
+
+      // Build photos section
+      const photoCount = summary.total_photos || 0;
+      const photosHTML = `
+        <div style="background:#0d2137;border-radius:10px;padding:16px;margin-top:16px;border:1px solid rgba(163,230,53,0.3)">
+          <div style="font-size:16px;font-weight:600;color:#a3e635">Project Photos (${photoCount})</div>
+          <div style="font-size:12px;color:#888;margin-top:4px">
+            ${photoCount > 0 ? `${photoCount} photo(s) attached to this project` : 'No photos uploaded yet'}
+          </div>
+        </div>`;
+
+      const html = `
+        <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: #0a1929; color: #fff; padding: 24px; margin: 0; }
+              .header { text-align: center; padding-bottom: 20px; border-bottom: 2px solid #a3e635; margin-bottom: 20px; }
+              .header h1 { color: #a3e635; font-size: 24px; margin: 0; }
+              .header h2 { color: #fff; font-size: 18px; margin: 4px 0; font-weight: 400; }
+              .header p { color: #888; font-size: 12px; margin: 4px 0; }
+              .summary { display: flex; gap: 12px; margin-bottom: 24px; }
+              .summary-item { flex: 1; background: #0d2137; border-radius: 10px; padding: 14px; text-align: center; border: 1px solid #1a3a5c; }
+              .summary-number { font-size: 28px; font-weight: 700; color: #a3e635; }
+              .summary-label { font-size: 11px; color: #888; margin-top: 2px; }
+              .section-title { font-size: 18px; font-weight: 700; color: #fff; margin: 20px 0 6px; }
+              .section-subtitle { font-size: 12px; color: #888; margin-bottom: 14px; }
+              .sf-badge { background: rgba(255,152,0,0.1); border: 1px solid rgba(255,152,0,0.3); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; color: #FF9800; font-size: 12px; }
+              .footer { text-align: center; margin-top: 30px; padding-top: 16px; border-top: 1px solid #1a3a5c; color: #888; font-size: 11px; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>BLUE BOX AIR</h1>
+              <h2>${project.name || 'Project Report'}</h2>
+              <p>Report ID: ${reportData.report_id || 'N/A'}</p>
+              <p>Generated: ${reportData.generated_at ? format(new Date(reportData.generated_at), 'MMM d, yyyy h:mm a') : 'Now'}</p>
+              <p>Client: ${project.client_name || project.client || 'N/A'} | ${project.address || 'N/A'}</p>
+            </div>
+
+            <div class="sf-badge">
+              Salesforce: ${sfStatus.mode === 'live' ? 'Connected ✓' : 'Mock Data — Configure credentials for live sync'}
+            </div>
+
+            <div class="summary">
+              <div class="summary-item">
+                <div class="summary-number">${summary.total_equipment || 0}</div>
+                <div class="summary-label">Equipment</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-number">${summary.total_readings || 0}</div>
+                <div class="summary-label">Readings</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-number">${summary.total_photos || 0}</div>
+                <div class="summary-label">Photos</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-number">${summary.total_service_logs || 0}</div>
+                <div class="summary-label">Logs</div>
+              </div>
+            </div>
+
+            <div class="section-title">Equipment Data Changes</div>
+            <div class="section-subtitle">Pre vs Post service reading comparisons</div>
+            ${equipmentHTML}
+
+            ${photosHTML}
+
+            <div class="footer">
+              <p>Blue Box Air — Technician Service Report</p>
+              <p>This report was auto-generated from equipment service data</p>
+            </div>
+          </body>
+        </html>`;
+
+      if (Platform.OS === 'web') {
+        // On web, open the HTML in a new tab for printing/saving
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(html);
+          printWindow.document.close();
+          printWindow.focus();
+          setTimeout(() => printWindow.print(), 500);
+        }
+      } else {
+        // On mobile, generate PDF and share
+        const { uri } = await Print.printToFileAsync({ html });
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(uri, {
+            mimeType: 'application/pdf',
+            dialogTitle: `${project.name || 'Project'} Report`,
+            UTI: 'com.adobe.pdf',
+          });
+        } else {
+          Alert.alert('PDF Generated', `Report saved to: ${uri}`);
+        }
+      }
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      Alert.alert('Error', 'Failed to generate PDF report');
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
 
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -362,9 +529,15 @@ export default function ProjectDetailScreen() {
                 </View>
 
                 {/* Salesforce Sync Badge */}
-                <View style={styles.sfSyncBadge}>
-                  <Ionicons name="cloud-outline" size={16} color={COLORS.orange} />
-                  <Text style={styles.sfSyncText}>Salesforce: Mock Data (Will sync in production)</Text>
+                <View style={[styles.sfSyncBadge, reportData.salesforce_sync_status?.connected && { borderColor: COLORS.green + '30', backgroundColor: COLORS.green + '15' }]}>
+                  <Ionicons 
+                    name={reportData.salesforce_sync_status?.connected ? "cloud-done" : "cloud-outline"} 
+                    size={16} 
+                    color={reportData.salesforce_sync_status?.connected ? COLORS.green : COLORS.orange} 
+                  />
+                  <Text style={[styles.sfSyncText, reportData.salesforce_sync_status?.connected && { color: COLORS.green }]}>
+                    {reportData.salesforce_sync_status?.message || 'Mock Data — Configure Salesforce for live sync'}
+                  </Text>
                 </View>
 
                 {/* Report Summary */}
@@ -500,11 +673,49 @@ export default function ProjectDetailScreen() {
                   </View>
                 </TouchableOpacity>
 
-                {/* Refresh / Re-generate Button */}
-                <TouchableOpacity style={styles.regenerateButton} onPress={fetchReport}>
-                  <Ionicons name="refresh" size={20} color={COLORS.navy} />
-                  <Text style={styles.regenerateButtonText}>Refresh Report</Text>
-                </TouchableOpacity>
+                {/* Service Logs */}
+                {(reportData.service_logs || []).length > 0 && (
+                  <View style={{ marginTop: 20 }}>
+                    <Text style={styles.reportSectionTitle}>Service Logs</Text>
+                    {reportData.service_logs.map((log: any, idx: number) => (
+                      <View key={log.id || idx} style={styles.serviceLogCard}>
+                        <View style={styles.serviceLogRow}>
+                          <Ionicons name="construct" size={16} color={COLORS.lime} />
+                          <Text style={styles.serviceLogType}>{log.service_type || 'Service'}</Text>
+                          <Text style={styles.serviceLogDate}>
+                            {log.created_at ? format(new Date(log.created_at), 'MMM d, yyyy') : ''}
+                          </Text>
+                        </View>
+                        {log.description ? (
+                          <Text style={styles.serviceLogDesc}>{log.description}</Text>
+                        ) : null}
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Action Buttons */}
+                <View style={styles.reportActionButtons}>
+                  <TouchableOpacity 
+                    style={styles.downloadPdfButton} 
+                    onPress={generatePDF}
+                    disabled={pdfGenerating}
+                  >
+                    {pdfGenerating ? (
+                      <ActivityIndicator size="small" color={COLORS.white} />
+                    ) : (
+                      <Ionicons name="download" size={20} color={COLORS.white} />
+                    )}
+                    <Text style={styles.downloadPdfButtonText}>
+                      {pdfGenerating ? 'Generating...' : 'Download PDF'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.regenerateButton} onPress={fetchReport}>
+                    <Ionicons name="refresh" size={20} color={COLORS.navy} />
+                    <Text style={styles.regenerateButtonText}>Refresh</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : (
               <View style={styles.reportEmptyState}>
@@ -1293,13 +1504,62 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.lime,
     paddingVertical: 14,
     borderRadius: 12,
-    marginTop: 20,
-    marginBottom: 10,
+    flex: 1,
   },
   regenerateButtonText: {
     fontSize: 15,
     fontWeight: '600',
     color: COLORS.navy,
+  },
+  reportActionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  downloadPdfButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#2563EB',
+    paddingVertical: 14,
+    borderRadius: 12,
+    flex: 1,
+  },
+  downloadPdfButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  serviceLogCard: {
+    backgroundColor: COLORS.navyLight,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  serviceLogRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  serviceLogType: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.white,
+    flex: 1,
+  },
+  serviceLogDate: {
+    fontSize: 12,
+    color: COLORS.grayDark,
+  },
+  serviceLogDesc: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginTop: 6,
+    marginLeft: 24,
   },
   reportEmptyState: {
     alignItems: 'center',

@@ -12,6 +12,9 @@ from datetime import datetime, timedelta
 from bson import ObjectId
 import json
 
+# Salesforce integration
+from salesforce_service import salesforce, sf_config, get_salesforce_status, FIELD_MAPPINGS
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -291,6 +294,47 @@ async def get_profile():
     """Get current technician profile"""
     return MOCK_DATA["technician"]
 
+# ============ Salesforce Integration Routes ============
+
+@api_router.get("/salesforce/status")
+async def salesforce_status():
+    """Get Salesforce connection status and configuration info."""
+    return get_salesforce_status()
+
+@api_router.get("/salesforce/auth-url")
+async def salesforce_auth_url():
+    """Get the Salesforce OAuth authorization URL for login."""
+    if not sf_config.is_configured:
+        return {
+            "error": "Salesforce not configured",
+            "message": "Set SALESFORCE_CLIENT_ID and SALESFORCE_CLIENT_SECRET in backend/.env",
+            "auth_url": None
+        }
+    return {"auth_url": sf_config.auth_url}
+
+@api_router.get("/auth/salesforce/callback")
+async def salesforce_callback(code: str = Query(...)):
+    """Handle Salesforce OAuth callback after user authorization."""
+    result = await salesforce.authenticate_with_code(code)
+    if result:
+        return {
+            "success": True,
+            "message": "Salesforce authentication successful",
+            "user_info": result.get("user_info"),
+        }
+    return {
+        "success": False,
+        "message": "Salesforce authentication failed",
+    }
+
+@api_router.get("/salesforce/field-mappings")
+async def get_field_mappings():
+    """Get Salesforce object and field mappings for reference."""
+    return {
+        "mappings": FIELD_MAPPINGS,
+        "note": "Update these in salesforce_service.py to match your Salesforce org's custom object/field API names"
+    }
+
 # ============ Projects Routes ============
 
 @api_router.get("/projects")
@@ -530,7 +574,7 @@ async def generate_report(project_id: str):
     report = {
         "report_id": f"RPT-{project_id}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
         "generated_at": datetime.utcnow().isoformat(),
-        "salesforce_sync_status": "MOCK - Will sync with Salesforce in production",
+        "salesforce_sync_status": get_salesforce_status(),
         "project": project,
         "technician": MOCK_DATA["technician"],
         "summary": {
