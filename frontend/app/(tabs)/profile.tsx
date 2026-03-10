@@ -490,8 +490,8 @@ export default function ProfileScreen() {
           <View style={styles.profileHeader}>
             <TouchableOpacity 
               style={styles.avatarContainer} 
-              onPress={editing ? showPhotoOptions : undefined}
-              activeOpacity={editing ? 0.7 : 1}
+              onPress={showPhotoOptions}
+              activeOpacity={0.7}
             >
               <View style={styles.avatar}>
                 {profilePhoto ? (
@@ -500,11 +500,9 @@ export default function ProfileScreen() {
                   <Ionicons name="person" size={40} color={COLORS.lime} />
                 )}
               </View>
-              {editing && (
-                <View style={styles.cameraOverlay}>
-                  <Ionicons name="camera" size={16} color={COLORS.white} />
-                </View>
-              )}
+              <View style={styles.cameraOverlay}>
+                <Ionicons name="camera" size={16} color={COLORS.white} />
+              </View>
             </TouchableOpacity>
 
             {editing ? (

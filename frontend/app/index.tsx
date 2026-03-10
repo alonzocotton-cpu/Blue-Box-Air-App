@@ -10,13 +10,13 @@ import {
   Platform,
   Alert,
   Linking,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
-import Svg, { Path, Rect } from 'react-native-svg';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -31,42 +31,15 @@ const COLORS = {
   google: '#4285F4',
 };
 
-// Blue Box Air Logo Component - Crisp SVG version
+// Blue Box Air Logo Component - Uses the exact company logo image
+const LOGO_URI = 'https://customer-assets.emergentagent.com/job_ff19b27f-9c44-4d68-b174-1452a3057557/artifacts/2vycib7s_IMG_2827.jpeg';
 const BlueBoxLogo = ({ size = 100 }: { size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 100 100">
-    {/* Outer rounded rectangle with white border */}
-    <Rect
-      x="2"
-      y="2"
-      width="96"
-      height="96"
-      rx="18"
-      ry="18"
-      fill={COLORS.navyLight}
-      stroke={COLORS.white}
-      strokeWidth="3"
-    />
-    {/* Left white chevron */}
-    <Path
-      d="M 20 18 L 36 18 L 50 50 L 36 82 L 20 82 L 34 50 Z"
-      fill={COLORS.white}
-    />
-    {/* Right white chevron */}
-    <Path
-      d="M 64 18 L 80 18 L 66 50 L 80 82 L 64 82 L 50 50 Z"
-      fill={COLORS.white}
-    />
-    {/* Left lime chevron (X) */}
-    <Path
-      d="M 32 18 L 46 18 L 50 28 L 46 82 L 32 82 L 50 50 Z"
-      fill={COLORS.lime}
-    />
-    {/* Right lime chevron (X) */}
-    <Path
-      d="M 54 18 L 68 18 L 50 50 L 68 82 L 54 82 L 50 72 Z"
-      fill={COLORS.lime}
-    />
-  </Svg>
+  <Image
+    source={{ uri: LOGO_URI }}
+    style={{ width: size, height: size, borderRadius: size * 0.18 }}
+    resizeMode="contain"
+    defaultSource={require('../assets/logo.jpeg')}
+  />
 );
 
 export default function LoginScreen() {
