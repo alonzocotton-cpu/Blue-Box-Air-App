@@ -13,7 +13,7 @@ import time
 class TechnicianAPITester:
     def __init__(self):
         # Use the production URL from frontend/.env
-        self.base_url = "https://techservice-app-2.preview.emergentagent.com/api"
+        self.base_url = "https://coil-mgmt-app.preview.emergentagent.com/api"
         self.headers = {"Content-Type": "application/json"}
         self.auth_token = None
         self.test_results = {}

@@ -67,6 +67,15 @@ export default function ProjectDetailScreen() {
   const [mediaItems, setMediaItems] = useState<any[]>([]);
   const [mediaLoading, setMediaLoading] = useState(false);
   
+  // AI state
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const [showTroubleshootModal, setShowTroubleshootModal] = useState(false);
+  const [troubleshootEquipment, setTroubleshootEquipment] = useState<any>(null);
+  const [troubleshootIssue, setTroubleshootIssue] = useState('');
+  const [troubleshootResponse, setTroubleshootResponse] = useState<string | null>(null);
+  const [troubleshootLoading, setTroubleshootLoading] = useState(false);
+  
   // Share state
   const [showShareModal, setShowShareModal] = useState(false);
   const [technicians, setTechnicians] = useState<any[]>([]);
@@ -473,6 +482,76 @@ export default function ProjectDetailScreen() {
     }
   };
 
+
+  // ============ AI Functions ============
+  
+  const generateAISummary = async () => {
+    if (!reportData) return;
+    setAiSummaryLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/ai/report-summary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_name: reportData.project?.name || 'Project',
+          equipment_reports: reportData.equipment_reports || [],
+        }),
+      });
+      const data = await response.json();
+      setAiSummary(data.summary || 'Unable to generate summary.');
+    } catch (error) {
+      console.error('AI summary error:', error);
+      Alert.alert('Error', 'Failed to generate AI summary. Please try again.');
+    } finally {
+      setAiSummaryLoading(false);
+    }
+  };
+
+  const openTroubleshoot = (equipment: any) => {
+    setTroubleshootEquipment(equipment);
+    setTroubleshootIssue('');
+    setTroubleshootResponse(null);
+    setShowTroubleshootModal(true);
+  };
+
+  const submitTroubleshoot = async () => {
+    if (!troubleshootEquipment || !troubleshootIssue.trim()) {
+      Alert.alert('Error', 'Please describe the issue you are experiencing.');
+      return;
+    }
+    
+    setTroubleshootLoading(true);
+    try {
+      // Gather equipment readings for context
+      const eqReadings = details?.readings
+        ?.filter(r => r.equipment_id === troubleshootEquipment.id)
+        ?.map(r => ({
+          type: r.reading_type,
+          pre: r.reading_phase === 'Pre' ? r.value : undefined,
+          post: r.reading_phase === 'Post' ? r.value : undefined,
+          unit: r.unit,
+        })) || [];
+
+      const response = await fetch(`${API_URL}/api/ai/troubleshoot`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          equipment_name: troubleshootEquipment.name,
+          issue: troubleshootIssue,
+          readings: eqReadings,
+        }),
+      });
+      const data = await response.json();
+      setTroubleshootResponse(data.response || 'Unable to generate troubleshooting advice.');
+    } catch (error) {
+      console.error('AI troubleshoot error:', error);
+      Alert.alert('Error', 'Failed to get troubleshooting advice. Please try again.');
+    } finally {
+      setTroubleshootLoading(false);
+    }
+  };
+
+
   const submitServiceLog = async () => {
     if (!selectedEquipment || !serviceForm.description) {
       Alert.alert('Error', 'Please fill in all fields');
@@ -560,7 +639,7 @@ export default function ProjectDetailScreen() {
           }}
         >
           <Ionicons name="create" size={18} color={COLORS.lime} />
-          <Text style={styles.actionText}>Log Service</Text>
+          <Text style={styles.actionText}>Log</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.actionBtn}
@@ -571,6 +650,13 @@ export default function ProjectDetailScreen() {
         >
           <Ionicons name="camera" size={18} color={COLORS.lime} />
           <Text style={styles.actionText}>Photo</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionBtn, { backgroundColor: '#6366f120' }]}
+          onPress={() => openTroubleshoot(item)}
+        >
+          <Ionicons name="sparkles" size={18} color="#818cf8" />
+          <Text style={[styles.actionText, { color: '#818cf8' }]}>AI Help</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -874,6 +960,51 @@ export default function ProjectDetailScreen() {
                   </View>
                 )}
 
+                {/* AI Summary Section */}
+                <View style={styles.aiSummarySection}>
+                  <View style={styles.aiSummaryHeader}>
+                    <View style={styles.aiSummaryIconContainer}>
+                      <Ionicons name="sparkles" size={20} color={COLORS.lime} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.reportSectionTitle}>AI Report Summary</Text>
+                      <Text style={styles.reportSectionSubtitle}>Powered by Claude AI</Text>
+                    </View>
+                  </View>
+
+                  {aiSummary ? (
+                    <View style={styles.aiSummaryContent}>
+                      <Text style={styles.aiSummaryText}>{aiSummary}</Text>
+                      <TouchableOpacity 
+                        style={styles.aiRegenerateBtn}
+                        onPress={generateAISummary}
+                        disabled={aiSummaryLoading}
+                      >
+                        <Ionicons name="refresh" size={16} color={COLORS.lime} />
+                        <Text style={styles.aiRegenerateBtnText}>Regenerate</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity 
+                      style={styles.aiGenerateBtn}
+                      onPress={generateAISummary}
+                      disabled={aiSummaryLoading}
+                    >
+                      {aiSummaryLoading ? (
+                        <>
+                          <ActivityIndicator size="small" color={COLORS.navy} />
+                          <Text style={styles.aiGenerateBtnText}>Analyzing with AI...</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Ionicons name="sparkles" size={18} color={COLORS.navy} />
+                          <Text style={styles.aiGenerateBtnText}>Generate AI Summary</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
+
                 {/* Action Buttons */}
                 <View style={styles.reportActionButtons}>
                   <TouchableOpacity 
@@ -1162,6 +1293,106 @@ export default function ProjectDetailScreen() {
                 </Text>
               )}
             </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* AI Troubleshoot Modal */}
+      <Modal visible={showTroubleshootModal} transparent animationType="slide">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalContent, { maxHeight: '85%' }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: '#6366f120', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="sparkles" size={18} color="#818cf8" />
+                </View>
+                <Text style={styles.modalTitle}>AI Troubleshoot</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowTroubleshootModal(false)}>
+                <Ionicons name="close" size={24} color={COLORS.white} />
+              </TouchableOpacity>
+            </View>
+
+            {troubleshootEquipment && (
+              <View style={styles.troubleshootEquipmentBadge}>
+                <Ionicons name="cube" size={16} color={COLORS.lime} />
+                <Text style={styles.troubleshootEquipmentName}>{troubleshootEquipment.name}</Text>
+                <Text style={styles.troubleshootEquipmentType}>{troubleshootEquipment.equipment_type}</Text>
+              </View>
+            )}
+
+            <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
+              {!troubleshootResponse ? (
+                <>
+                  <Text style={styles.troubleshootLabel}>Describe the issue:</Text>
+                  <TextInput
+                    style={[styles.modalInput, styles.modalTextArea, { height: 120 }]}
+                    placeholder="e.g., High differential pressure readings after cleaning, unusual noise from AHU, airflow readings below spec..."
+                    placeholderTextColor={COLORS.grayDark}
+                    value={troubleshootIssue}
+                    onChangeText={setTroubleshootIssue}
+                    multiline
+                    numberOfLines={5}
+                  />
+
+                  <View style={styles.troubleshootTips}>
+                    <Text style={styles.troubleshootTipsTitle}>Tips for better results:</Text>
+                    <Text style={styles.troubleshootTip}>• Include specific reading values</Text>
+                    <Text style={styles.troubleshootTip}>• Mention any recent maintenance</Text>
+                    <Text style={styles.troubleshootTip}>• Describe environmental conditions</Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.submitButton, { backgroundColor: '#818cf8' }, (!troubleshootIssue.trim() || troubleshootLoading) && { opacity: 0.5 }]}
+                    onPress={submitTroubleshoot}
+                    disabled={!troubleshootIssue.trim() || troubleshootLoading}
+                  >
+                    {troubleshootLoading ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <ActivityIndicator size="small" color={COLORS.white} />
+                        <Text style={[styles.submitButtonText, { color: COLORS.white }]}>Analyzing...</Text>
+                      </View>
+                    ) : (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Ionicons name="sparkles" size={18} color={COLORS.white} />
+                        <Text style={[styles.submitButtonText, { color: COLORS.white }]}>Get AI Troubleshooting</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <View style={styles.troubleshootResponseCard}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                      <Ionicons name="sparkles" size={16} color="#818cf8" />
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#818cf8' }}>AI Recommendations</Text>
+                    </View>
+                    <Text style={styles.troubleshootResponseText}>{troubleshootResponse}</Text>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                    <TouchableOpacity
+                      style={[styles.submitButton, { flex: 1, backgroundColor: '#818cf8' }]}
+                      onPress={() => {
+                        setTroubleshootResponse(null);
+                        setTroubleshootIssue('');
+                      }}
+                    >
+                      <Text style={[styles.submitButtonText, { color: COLORS.white }]}>Ask Another</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.submitButton, { flex: 1, backgroundColor: COLORS.navyLight, borderWidth: 1, borderColor: '#2d4a6f' }]}
+                      onPress={() => setShowTroubleshootModal(false)}
+                    >
+                      <Text style={[styles.submitButtonText, { color: COLORS.white }]}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -1463,6 +1694,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.grayDark,
     marginTop: 12,
+  },
+  emptySubtext: {
+    fontSize: 12,
+    color: COLORS.grayDark,
+    marginTop: 4,
+    textAlign: 'center',
   },
   addPhotoBtn: {
     flexDirection: 'row',
@@ -2006,5 +2243,133 @@ const styles = StyleSheet.create({
   techCheckboxChecked: {
     backgroundColor: COLORS.lime,
     borderColor: COLORS.lime,
+  },
+  // ============ AI Summary Styles ============
+  aiSummarySection: {
+    marginTop: 20,
+    backgroundColor: COLORS.navyLight,
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#6366f130',
+  },
+  aiSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 14,
+  },
+  aiSummaryIconContainer: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: COLORS.lime + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiSummaryContent: {
+    backgroundColor: COLORS.navy,
+    borderRadius: 10,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  aiSummaryText: {
+    fontSize: 14,
+    color: COLORS.white,
+    lineHeight: 22,
+  },
+  aiRegenerateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    alignSelf: 'flex-end',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.lime + '40',
+  },
+  aiRegenerateBtnText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.lime,
+  },
+  aiGenerateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.lime,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  aiGenerateBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.navy,
+  },
+  // ============ Troubleshoot Styles ============
+  troubleshootEquipmentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: COLORS.navy,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  troubleshootEquipmentName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  troubleshootEquipmentType: {
+    fontSize: 12,
+    color: COLORS.lime,
+    fontWeight: '500',
+  },
+  troubleshootLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.gray,
+    marginBottom: 8,
+  },
+  troubleshootTips: {
+    backgroundColor: COLORS.navy,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#2d4a6f',
+  },
+  troubleshootTipsTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.gray,
+    marginBottom: 6,
+  },
+  troubleshootTip: {
+    fontSize: 12,
+    color: COLORS.grayDark,
+    marginBottom: 3,
+    lineHeight: 18,
+  },
+  troubleshootResponseCard: {
+    backgroundColor: COLORS.navy,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#6366f130',
+  },
+  troubleshootResponseText: {
+    fontSize: 14,
+    color: COLORS.white,
+    lineHeight: 22,
   },
 });

@@ -111,253 +111,132 @@ backend:
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "Mock Salesforce OAuth login working, returns technician data and token"
 
-  - task: "Work Orders API"
+  - task: "AI Chat Endpoint"
     implemented: true
     working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
-      - working: true
+      - working: "NA"
         agent: "main"
-        comment: "GET /api/work-orders, GET /api/work-orders/{id}, PATCH /api/work-orders/{id} implemented"
+        comment: "POST /api/ai/chat endpoint implemented using emergentintegrations LlmChat with Claude model. Uses session_id for conversation history."
+      - working: true
+        agent: "testing"
+        comment: "AI Chat endpoint tested successfully. Fixed minor session_id null handling issue. Returns proper AI responses with session management. Claude model working correctly with Emergent LLM key."
 
-  - task: "Time Entries API"
+  - task: "AI Troubleshoot Endpoint"
     implemented: true
     working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/ai/troubleshoot endpoint implemented. Accepts equipment_name, issue, and readings. Returns AI troubleshooting advice."
+      - working: true
+        agent: "testing"
+        comment: "AI Troubleshoot endpoint tested successfully. Accepts equipment data and readings, returns detailed troubleshooting advice from Claude. Working correctly with sample equipment and pressure readings."
+
+  - task: "AI Report Summary Endpoint"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/ai/report-summary endpoint implemented. Accepts project data and returns AI-generated summary."
+      - working: true
+        agent: "testing"
+        comment: "AI Report Summary endpoint tested successfully. Generates professional service report summaries from equipment data and readings. Claude model producing quality summaries as expected."
+
+  - task: "Projects API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
-        comment: "POST /api/time-entries, GET /api/time-entries/{work_order_id}, PATCH /api/time-entries/{id}/stop implemented"
+        comment: "GET /api/projects, GET /api/projects/{id} working with mock data"
 
-  - task: "Expenses API"
+  - task: "Reports API"
     implemented: true
     working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
-        comment: "POST /api/expenses, GET /api/expenses/{work_order_id} implemented"
-
-  - task: "Photos API"
-    implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: true
-    status_history:
-      - working: true
-        agent: "main"
-        comment: "POST /api/photos, GET /api/photos/{work_order_id} implemented"
-
-  - task: "Signatures API"
-    implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: true
-    status_history:
-      - working: true
-        agent: "main"
-        comment: "POST /api/signatures, GET /api/signatures/{work_order_id} implemented"
-
-  - task: "Accounts/Contacts API"
-    implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: true
-    status_history:
-      - working: true
-        agent: "main"
-        comment: "GET /api/accounts, GET /api/accounts/{id}, GET /api/contacts implemented"
-
-  - task: "Cases API"
-    implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: true
-    status_history:
-      - working: true
-        agent: "main"
-        comment: "GET /api/cases, GET /api/cases/{id} implemented"
-
-  - task: "Dashboard Stats API"
-    implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: true
-    status_history:
-      - working: true
-        agent: "main"
-        comment: "GET /api/dashboard/stats implemented"
-
-  - task: "Location Tracking API"
-    implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 0
-    priority: "low"
-    needs_retesting: true
-    status_history:
-      - working: true
-        agent: "main"
-        comment: "POST /api/location, GET /api/location/history implemented"
+        comment: "GET /api/reports/{project_id} generates report with reading comparisons"
 
 frontend:
-  - task: "Login Screen"
+  - task: "AI Assistant Chat Screen"
     implemented: true
     working: true
-    file: "/app/frontend/app/index.tsx"
+    file: "/app/frontend/app/(tabs)/ai-assistant.tsx"
     stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
       - working: true
         agent: "main"
-        comment: "Login UI with Salesforce OAuth button, demo mode badge, credentials input working"
+        comment: "Full chat interface with quick action cards, message bubbles, session management. Added as new tab."
 
-  - task: "Home Dashboard"
+  - task: "AI Report Summary in Project"
     implemented: true
     working: true
-    file: "/app/frontend/app/(tabs)/home.tsx"
+    file: "/app/frontend/app/project/[id].tsx"
     stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
       - working: true
         agent: "main"
-        comment: "Dashboard with stats, quick actions, recent work orders working"
+        comment: "Generate AI Summary button added to Report tab. Shows AI-generated summary with regenerate option."
 
-  - task: "Work Orders List"
+  - task: "AI Troubleshoot on Equipment"
     implemented: true
     working: true
-    file: "/app/frontend/app/(tabs)/work-orders.tsx"
+    file: "/app/frontend/app/project/[id].tsx"
     stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
       - working: true
         agent: "main"
-        comment: "Work orders list with search, filters, status badges working"
-
-  - task: "Work Order Detail"
-    implemented: true
-    working: true
-    file: "/app/frontend/app/work-order/[id].tsx"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-      - working: true
-        agent: "main"
-        comment: "Work order detail with customer info, schedule, time tracking, quick actions working"
-
-  - task: "Customers List"
-    implemented: true
-    working: true
-    file: "/app/frontend/app/(tabs)/customers.tsx"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: false
-    status_history:
-      - working: true
-        agent: "main"
-        comment: "Customers list with search, industry badges, contact info working"
-
-  - task: "Account Detail"
-    implemented: true
-    working: true
-    file: "/app/frontend/app/account/[id].tsx"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: false
-    status_history:
-      - working: true
-        agent: "main"
-        comment: "Account detail with contacts, work orders, call/email actions working"
-
-  - task: "Cases List"
-    implemented: true
-    working: true
-    file: "/app/frontend/app/(tabs)/cases.tsx"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: false
-    status_history:
-      - working: true
-        agent: "main"
-        comment: "Cases list with search, filters, status/priority badges working"
-
-  - task: "Profile Screen"
-    implemented: true
-    working: true
-    file: "/app/frontend/app/(tabs)/profile.tsx"
-    stuck_count: 0
-    priority: "low"
-    needs_retesting: false
-    status_history:
-      - working: true
-        agent: "main"
-        comment: "Profile with account settings, app settings, logout working"
-
-  - task: "Signature Screen"
-    implemented: true
-    working: true
-    file: "/app/frontend/app/signature/[workOrderId].tsx"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: false
-    status_history:
-      - working: true
-        agent: "main"
-        comment: "Signature capture with canvas, signer name input working"
+        comment: "AI Help button on each equipment card. Opens modal for describing issues, gets AI troubleshooting response."
 
 metadata:
   created_by: "main_agent"
-  version: "1.0"
-  test_sequence: 1
+  version: "2.0"
+  test_sequence: 2
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Auth Login API"
-    - "Work Orders API"
-    - "Time Entries API"
-    - "Dashboard Stats API"
+  current_focus: []
   stuck_tasks: []
-  test_all: true
+  test_all: false
   test_priority: "high_first"
 
 agent_communication:
   - agent: "main"
-    message: "Initial implementation complete. All backend APIs and frontend screens are implemented. Need to test all API endpoints. Frontend has been verified through screenshots - login, home, work orders, customers, cases, profile screens all working."
-  - agent: "main"
-    message: "Fixed date/time picker on web. Replaced @react-native-community/datetimepicker (native-only) with cross-platform solution: HTML native inputs on web, keeps native pickers on iOS/Android. Verified: date input, time input, value entry, and reading submission all working on web preview."
-  - agent: "main"
-    message: "Added Generate Report feature. New backend endpoint GET /api/reports/{project_id} aggregates project data with equipment reading comparisons. New Report tab on project detail page shows: project summary stats, equipment data changes (Pre/Post/Difference table), project photos link, and Salesforce sync status badge. All verified via screenshots."
-  - agent: "main"
-    message: "Made app Salesforce-ready. Created salesforce_service.py with full OAuth flow, SOQL query methods, data push/pull for Projects, Equipment, Readings, Photos, and Service Reports. Added field mappings for all Salesforce custom objects. Added Salesforce status endpoint (/api/salesforce/status), auth URL endpoint, callback handler, and field mappings endpoint. Added Download PDF button using expo-print/expo-sharing that generates a professional HTML report. Salesforce .env placeholder config added. All verified via screenshots and API tests."
-  - agent: "main"
-    message: "Implemented 4 features: 1) Camera & Video - Photo/Video/Gallery capture buttons in Photos tab + camera header button with action sheet. 2) Profile Setup - Full editable profile with name, title, email, phone, company, skills (add/remove), profile photo via camera/gallery. 3) Project Sharing - Share modal with Blue Box Air technician list, multi-select, message, native share. 4) HVAC->Coil Management text change across all data. All verified via screenshots."
+    message: "Claude AI integration complete. Three new backend endpoints: POST /api/ai/chat, POST /api/ai/troubleshoot, POST /api/ai/report-summary. All use emergentintegrations LlmChat with Claude model (anthropic, claude-sonnet-4-5-20250929). Frontend has new AI Assistant tab with chat interface, AI Summary in Report tab, and AI Help button on equipment cards. Need backend testing to verify AI endpoints work with the Emergent LLM key."
+  - agent: "testing"
+    message: "Backend testing complete. All 3 AI endpoints working correctly with Claude model. Fixed minor session_id handling issue in chat endpoint. All existing endpoints (auth, projects, reports) confirmed working. Success rate: 100% (6/6 tests passed). AI integration is fully functional with proper responses from Claude."
