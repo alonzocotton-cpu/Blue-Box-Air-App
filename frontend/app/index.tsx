@@ -287,6 +287,14 @@ export default function LoginScreen() {
               <Ionicons name="information-circle-outline" size={16} color={COLORS.lime} />
               <Text style={styles.mockText}>Demo Mode - Any credentials work</Text>
             </View>
+            
+            {/* Create Account Link */}
+            <View style={styles.createAccountContainer}>
+              <Text style={styles.createAccountText}>New to Blue Box Air? </Text>
+              <TouchableOpacity onPress={() => router.push('/register')}>
+                <Text style={styles.createAccountLink}>Create Account</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -449,5 +457,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.lime,
     fontWeight: '500',
+  },
+  createAccountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  createAccountText: {
+    fontSize: 14,
+    color: COLORS.gray,
+  },
+  createAccountLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.lime,
   },
 });

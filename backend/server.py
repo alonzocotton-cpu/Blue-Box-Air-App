@@ -11,6 +11,7 @@ import uuid
 from datetime import datetime, timedelta
 from bson import ObjectId
 import json
+import hashlib
 
 # Salesforce integration
 from salesforce_service import salesforce, sf_config, get_salesforce_status, FIELD_MAPPINGS
@@ -62,6 +63,12 @@ def serialize_doc(doc):
 class TechnicianLogin(BaseModel):
     username: str
     password: str
+
+class TechnicianRegister(BaseModel):
+    full_name: str
+    email: str
+    password: str
+    phone: Optional[str] = None
 
 class TechnicianProfile(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -252,14 +259,74 @@ current_technician_id = "tech-001"
 
 # ============ Auth Routes ============
 
+def hash_password(password: str) -> str:
+    """Simple password hashing using SHA256 with salt"""
+    salt = "blueboxair_salt_2024"
+    return hashlib.sha256(f"{salt}{password}".encode()).hexdigest()
+
+@api_router.post("/auth/register")
+async def register(data: TechnicianRegister):
+    """Register a new user account"""
+    # Check if email already exists
+    existing = await db.users.find_one({"email": data.email.lower().strip()})
+    if existing:
+        raise HTTPException(status_code=400, detail="An account with this email already exists")
+    
+    # Create new user
+    user_id = f"user-{uuid.uuid4().hex[:8]}"
+    user = {
+        "id": user_id,
+        "full_name": data.full_name.strip(),
+        "email": data.email.lower().strip(),
+        "password_hash": hash_password(data.password),
+        "phone": data.phone or "",
+        "skills": [],
+        "profile_photo": None,
+        "title": "Technician",
+        "company": "Blue Box Air, Inc.",
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    
+    await db.users.insert_one(user)
+    
+    # Return user data (without password)
+    user_response = {k: v for k, v in user.items() if k != "password_hash" and k != "_id"}
+    
+    return {
+        "success": True,
+        "message": "Account created successfully",
+        "technician": user_response,
+        "token": "jwt-token-" + str(uuid.uuid4()),
+    }
+
 @api_router.post("/auth/login")
 async def login(credentials: TechnicianLogin):
-    """Mock Salesforce OAuth login - returns mock technician data"""
+    """Login - checks registered users first, falls back to mock data"""
+    # First check if user exists in DB (registered users)
+    db_user = await db.users.find_one({
+        "email": credentials.username.lower().strip()
+    })
+    
+    if db_user:
+        # Verify password
+        if db_user.get("password_hash") == hash_password(credentials.password):
+            user_response = {k: v for k, v in db_user.items() if k != "password_hash" and k != "_id"}
+            user_response = serialize_doc(user_response)
+            return {
+                "success": True,
+                "message": "Login successful",
+                "technician": user_response,
+                "token": "jwt-token-" + str(uuid.uuid4()),
+            }
+        else:
+            raise HTTPException(status_code=401, detail="Invalid password")
+    
+    # Fallback: Mock Salesforce login (demo mode - any credentials work)
     technician = MOCK_DATA["technician"].copy()
     
     return {
         "success": True,
-        "message": "Login successful (MOCK - Salesforce OAuth will be used in production)",
+        "message": "Login successful (Demo Mode)",
         "technician": technician,
         "token": "mock-jwt-token-" + str(uuid.uuid4())
     }
