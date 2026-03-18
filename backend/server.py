@@ -331,6 +331,69 @@ async def login(credentials: TechnicianLogin):
         "token": "mock-jwt-token-" + str(uuid.uuid4())
     }
 
+class GoogleAuthData(BaseModel):
+    email: str
+    name: str
+    google_id: str
+    picture: Optional[str] = None
+
+@api_router.post("/auth/google")
+async def google_login(data: GoogleAuthData):
+    """Handle Google OAuth login - creates or logs in user"""
+    email = data.email.lower().strip()
+    
+    # Check if user already exists with this email or google_id
+    existing = await db.users.find_one({
+        "$or": [
+            {"email": email},
+            {"google_id": data.google_id}
+        ]
+    })
+    
+    if existing:
+        # Update google_id if not set
+        if not existing.get("google_id"):
+            await db.users.update_one(
+                {"_id": existing["_id"]},
+                {"$set": {"google_id": data.google_id, "auth_provider": "google"}}
+            )
+        
+        user_response = {k: v for k, v in existing.items() if k not in ("password_hash", "_id")}
+        user_response = serialize_doc(user_response)
+        return {
+            "success": True,
+            "message": "Google login successful",
+            "technician": user_response,
+            "token": "jwt-token-" + str(uuid.uuid4()),
+        }
+    
+    # Create new user from Google data
+    user_id = f"user-{uuid.uuid4().hex[:8]}"
+    user = {
+        "id": user_id,
+        "full_name": data.name,
+        "email": email,
+        "google_id": data.google_id,
+        "auth_provider": "google",
+        "phone": "",
+        "skills": [],
+        "profile_photo": data.picture,
+        "title": "Technician",
+        "company": "Blue Box Air, Inc.",
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    
+    await db.users.insert_one(user)
+    
+    user_response = {k: v for k, v in user.items() if k != "_id"}
+    
+    return {
+        "success": True,
+        "message": "Google account created and logged in",
+        "technician": user_response,
+        "token": "jwt-token-" + str(uuid.uuid4()),
+    }
+
 @api_router.get("/auth/profile")
 async def get_profile():
     """Get current technician profile"""

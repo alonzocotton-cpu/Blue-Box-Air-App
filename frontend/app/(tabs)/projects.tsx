@@ -101,6 +101,9 @@ export default function ProjectsScreen() {
       style={styles.projectCard}
       onPress={() => router.push(`/project/${item.id}`)}
       activeOpacity={0.7}
+      accessibilityLabel={`${item.name}, ${item.client}, Status: ${item.status}`}
+      accessibilityRole="button"
+      accessibilityHint="Opens project details"
     >
       <View style={styles.cardHeader}>
         <View style={styles.projectInfo}>
@@ -149,15 +152,16 @@ export default function ProjectsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} accessible={true} accessibilityLabel="Projects screen">
       {/* Header */}
-      <View style={styles.header}>
+      <View style={styles.header} accessible={true} accessibilityRole="header">
         <View style={styles.headerTop}>
           <View style={styles.brandContainer}>
             <Image
               source={{ uri: 'https://customer-assets.emergentagent.com/job_ff19b27f-9c44-4d68-b174-1452a3057557/artifacts/jz43di8v_IMG_2827.jpeg' }}
               style={styles.headerLogo}
               resizeMode="contain"
+              accessibilityLabel="Blue Box Air logo"
             />
             <Text style={styles.brandText}>BLUE BOX</Text>
             <View style={styles.addButton}>
@@ -165,7 +169,7 @@ export default function ProjectsScreen() {
             </View>
           </View>
         </View>
-        <Text style={styles.welcomeText}>Welcome, {technician?.full_name || 'Technician'}</Text>
+        <Text style={styles.welcomeText} accessibilityRole="header">Welcome, {technician?.full_name || 'Technician'}</Text>
         <Text style={styles.headerSubtitle}>{filteredProjects.length} Projects Assigned</Text>
       </View>
 

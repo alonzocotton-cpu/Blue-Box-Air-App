@@ -210,8 +210,246 @@ def test_demo_mode_login():
         print(f"❌ ERROR: {str(e)}")
         return False
 
+def test_google_first_login():
+    """Test POST /api/auth/google - First Google login (creates new user)"""
+    print("\n=== Test 6: Google OAuth First Login (New User) ===")
+    
+    payload = {
+        "email": "testuser@gmail.com",
+        "name": "Test Google User", 
+        "google_id": "google-12345",
+        "picture": "https://example.com/photo.jpg"
+    }
+    
+    try:
+        response = requests.post(f"{BACKEND_URL}/auth/google", json=payload, timeout=30)
+        print(f"Status Code: {response.status_code}")
+        print(f"Response: {response.text}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            expected_fields = ["success", "message", "technician", "token"]
+            
+            # Check response structure
+            missing_fields = [field for field in expected_fields if field not in data]
+            if missing_fields:
+                print(f"❌ FAIL: Missing fields in response: {missing_fields}")
+                return False
+                
+            # Check success flag
+            if data.get("success") != True:
+                print(f"❌ FAIL: Success flag is not True")
+                return False
+                
+            # Check message for new user creation
+            message = data.get("message", "")
+            if "created" not in message.lower():
+                print(f"❌ FAIL: Message doesn't indicate account creation: {message}")
+                return False
+                
+            # Check technician data
+            technician = data.get("technician", {})
+            required_fields = ["full_name", "email", "google_id", "auth_provider"]
+            for field in required_fields:
+                if field not in technician:
+                    print(f"❌ FAIL: Missing technician field: {field}")
+                    return False
+            
+            # Validate specific values
+            if technician.get("email") != payload["email"]:
+                print(f"❌ FAIL: Email mismatch")
+                return False
+            if technician.get("google_id") != payload["google_id"]:
+                print(f"❌ FAIL: Google ID mismatch")
+                return False
+            if technician.get("auth_provider") != "google":
+                print(f"❌ FAIL: Auth provider should be 'google'")
+                return False
+            
+            # Check token
+            if not data.get("token"):
+                print(f"❌ FAIL: No token provided")
+                return False
+            
+            print(f"✅ SUCCESS: Google first login successful")
+            print(f"   - User created with Google ID: {technician.get('google_id')}")
+            print(f"   - Auth provider: {technician.get('auth_provider')}")
+            print(f"   - Token provided: {data.get('token')[:20]}...")
+            return True
+        else:
+            print(f"❌ FAIL: Expected 200, got {response.status_code}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ ERROR: {str(e)}")
+        return False
+
+def test_google_returning_login():
+    """Test POST /api/auth/google - Returning Google user (logs in existing)"""
+    print("\n=== Test 7: Google OAuth Returning Login (Existing User) ===")
+    
+    # Same data as first login test
+    payload = {
+        "email": "testuser@gmail.com",
+        "name": "Test Google User",
+        "google_id": "google-12345"
+    }
+    
+    try:
+        response = requests.post(f"{BACKEND_URL}/auth/google", json=payload, timeout=30)
+        print(f"Status Code: {response.status_code}")
+        print(f"Response: {response.text}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            expected_fields = ["success", "message", "technician", "token"]
+            
+            # Check response structure
+            missing_fields = [field for field in expected_fields if field not in data]
+            if missing_fields:
+                print(f"❌ FAIL: Missing fields in response: {missing_fields}")
+                return False
+                
+            # Check success flag
+            if data.get("success") != True:
+                print(f"❌ FAIL: Success flag is not True")
+                return False
+                
+            # Check message for existing user login
+            message = data.get("message", "")
+            if "login successful" not in message.lower():
+                print(f"❌ FAIL: Message doesn't indicate successful login: {message}")
+                return False
+                
+            # Check technician data
+            technician = data.get("technician", {})
+            if technician.get("email") != payload["email"]:
+                print(f"❌ FAIL: Email mismatch")
+                return False
+            if technician.get("google_id") != payload["google_id"]:
+                print(f"❌ FAIL: Google ID mismatch")
+                return False
+            
+            # Check token
+            if not data.get("token"):
+                print(f"❌ FAIL: No token provided")
+                return False
+            
+            print(f"✅ SUCCESS: Google returning login successful")
+            print(f"   - Existing user logged in: {technician.get('email')}")
+            print(f"   - Token provided: {data.get('token')[:20]}...")
+            return True
+        else:
+            print(f"❌ FAIL: Expected 200, got {response.status_code}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ ERROR: {str(e)}")
+        return False
+
+def test_google_demo_login():
+    """Test POST /api/auth/google - Demo Google login"""
+    print("\n=== Test 8: Google OAuth Demo Login ===")
+    
+    payload = {
+        "email": "demo.user@gmail.com",
+        "name": "Google Demo User",
+        "google_id": "google-demo-123"
+    }
+    
+    try:
+        response = requests.post(f"{BACKEND_URL}/auth/google", json=payload, timeout=30)
+        print(f"Status Code: {response.status_code}")
+        print(f"Response: {response.text}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            expected_fields = ["success", "message", "technician", "token"]
+            
+            # Check response structure
+            missing_fields = [field for field in expected_fields if field not in data]
+            if missing_fields:
+                print(f"❌ FAIL: Missing fields in response: {missing_fields}")
+                return False
+                
+            # Check success flag
+            if data.get("success") != True:
+                print(f"❌ FAIL: Success flag is not True")
+                return False
+                
+            # Check technician data
+            technician = data.get("technician", {})
+            if technician.get("email") != payload["email"]:
+                print(f"❌ FAIL: Email mismatch")
+                return False
+            
+            # Check token
+            if not data.get("token"):
+                print(f"❌ FAIL: No token provided")
+                return False
+            
+            print(f"✅ SUCCESS: Google demo login successful")
+            print(f"   - Demo user created/logged in: {technician.get('email')}")
+            return True
+        else:
+            print(f"❌ FAIL: Expected 200, got {response.status_code}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ ERROR: {str(e)}")
+        return False
+
+def test_existing_endpoints():
+    """Test existing endpoints still work after Google OAuth implementation"""
+    print("\n=== Test 9: Existing Endpoints Verification ===")
+    
+    results = []
+    
+    # Test demo login
+    print("\n--- Testing existing POST /api/auth/login ---")
+    payload = {"username": "test", "password": "test"}
+    try:
+        response = requests.post(f"{BACKEND_URL}/auth/login", json=payload, timeout=30)
+        if response.status_code == 200 and response.json().get("success") == True:
+            print("✅ Demo login still works")
+            results.append(True)
+        else:
+            print(f"❌ Demo login failed: {response.status_code} - {response.text}")
+            results.append(False)
+    except Exception as e:
+        print(f"❌ Demo login error: {str(e)}")
+        results.append(False)
+    
+    # Test projects endpoint
+    print("\n--- Testing GET /api/projects ---")
+    try:
+        response = requests.get(f"{BACKEND_URL}/projects", timeout=30)
+        if response.status_code == 200:
+            data = response.json()
+            if "projects" in data and isinstance(data["projects"], list):
+                print(f"✅ Projects endpoint works - returned {len(data['projects'])} projects")
+                results.append(True)
+            else:
+                print(f"❌ Projects endpoint response invalid: {data}")
+                results.append(False)
+        else:
+            print(f"❌ Projects endpoint failed: {response.status_code} - {response.text}")
+            results.append(False)
+    except Exception as e:
+        print(f"❌ Projects endpoint error: {str(e)}")
+        results.append(False)
+    
+    # Return overall result
+    all_passed = all(results)
+    if all_passed:
+        print(f"✅ SUCCESS: All existing endpoints working")
+    else:
+        print(f"❌ FAIL: Some existing endpoints have issues")
+    
+    return all_passed
+
 def main():
-    """Run all authentication tests"""
+    """Run all authentication tests including Google OAuth"""
     print("=" * 60)
     print("Blue Box Air Backend Authentication Tests")
     print(f"Backend URL: {BACKEND_URL}")
@@ -221,6 +459,9 @@ def main():
     # Keep track of test results
     results = []
     test_email = None
+    
+    # Original authentication tests
+    print("\n🔵 STANDARD AUTHENTICATION TESTS")
     
     # Test 1: Register new user
     success, test_email = test_user_registration()
@@ -246,9 +487,28 @@ def main():
     success = test_demo_mode_login()
     results.append(("Demo Mode", success))
     
+    # Google OAuth tests
+    print("\n🔵 GOOGLE OAUTH TESTS")
+    
+    # Test 6: Google first login
+    success = test_google_first_login()
+    results.append(("Google First Login", success))
+    
+    # Test 7: Google returning login
+    success = test_google_returning_login()
+    results.append(("Google Return Login", success))
+    
+    # Test 8: Google demo login
+    success = test_google_demo_login()
+    results.append(("Google Demo Login", success))
+    
+    # Test 9: Existing endpoints verification
+    success = test_existing_endpoints()
+    results.append(("Existing Endpoints", success))
+    
     # Summary
     print("\n" + "=" * 60)
-    print("AUTHENTICATION TEST SUMMARY")
+    print("COMPLETE AUTHENTICATION TEST SUMMARY")
     print("=" * 60)
     
     passed = 0
