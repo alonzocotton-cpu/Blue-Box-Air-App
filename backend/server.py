@@ -173,7 +173,7 @@ class ServiceLogCreate(BaseModel):
 def generate_mock_data():
     """Generate mock data simulating Salesforce data"""
     
-    # Mock Technician
+    # Mock Technician (current logged-in user is a Supervisor)
     mock_technician = {
         "id": "tech-001",
         "salesforce_id": "003Dn00000AbCdEF",
@@ -182,7 +182,81 @@ def generate_mock_data():
         "full_name": "John Smith",
         "phone": "(555) 123-4567",
         "skills": ["Coil Management", "Coil Cleaning", "Air Quality", "Bio-Automation Install", "Client Specialist", "Field Trainer", "Virtual Trainer", "Trouble Shoot Expert"],
-        "profile_image": None
+        "profile_image": None,
+        "role": "supervisor",
+        "title": "Senior Field Supervisor",
+        "supervisor_id": "admin-001",
+    }
+    
+    # Mock Team Members (technicians under this supervisor)
+    mock_team = [
+        {
+            "id": "tech-002",
+            "full_name": "Maria Garcia",
+            "email": "maria.garcia@blueboxair.com",
+            "phone": "(555) 234-5678",
+            "role": "technician",
+            "title": "Field Technician",
+            "skills": ["Coil Cleaning", "Air Quality", "Bio-Automation Install"],
+            "supervisor_id": "tech-001",
+            "status": "active",
+            "avatar_color": "#22c55e",
+            "projects_count": 2,
+            "last_active": (datetime.utcnow() - timedelta(hours=2)).isoformat(),
+        },
+        {
+            "id": "tech-003",
+            "full_name": "David Chen",
+            "email": "david.chen@blueboxair.com",
+            "phone": "(555) 345-6789",
+            "role": "technician",
+            "title": "Field Technician",
+            "skills": ["Coil Management", "Trouble Shoot Expert", "Chiller Specialist"],
+            "supervisor_id": "tech-001",
+            "status": "active",
+            "avatar_color": "#3b82f6",
+            "projects_count": 1,
+            "last_active": (datetime.utcnow() - timedelta(minutes=30)).isoformat(),
+        },
+        {
+            "id": "tech-004",
+            "full_name": "Sarah Williams",
+            "email": "sarah.williams@blueboxair.com",
+            "phone": "(555) 456-7890",
+            "role": "technician",
+            "title": "Junior Technician",
+            "skills": ["Coil Cleaning", "Field Trainer"],
+            "supervisor_id": "tech-001",
+            "status": "active",
+            "avatar_color": "#f59e0b",
+            "projects_count": 1,
+            "last_active": (datetime.utcnow() - timedelta(hours=5)).isoformat(),
+        },
+        {
+            "id": "tech-005",
+            "full_name": "James Rodriguez",
+            "email": "james.rodriguez@blueboxair.com",
+            "phone": "(555) 567-8901",
+            "role": "technician",
+            "title": "Field Technician",
+            "skills": ["Air Quality", "Bio-Automation Install", "Coil Management"],
+            "supervisor_id": "tech-001",
+            "status": "on_leave",
+            "avatar_color": "#ef4444",
+            "projects_count": 0,
+            "last_active": (datetime.utcnow() - timedelta(days=2)).isoformat(),
+        },
+    ]
+
+    # Mock Admin / Org structure
+    mock_org = {
+        "id": "admin-001",
+        "full_name": "Robert Johnson",
+        "email": "robert.johnson@blueboxair.com",
+        "role": "admin",
+        "title": "Regional Director",
+        "supervisor_id": None,
+        "avatar_color": "#c5d93d",
     }
     
     # Mock Projects (from Salesforce)
@@ -200,6 +274,7 @@ def generate_mock_data():
             "start_date": now - timedelta(days=5),
             "end_date": now + timedelta(days=25),
             "assigned_technician_id": "tech-001",
+            "assigned_techs": ["tech-001", "tech-002"],
             "equipment_count": 24
         },
         {
@@ -214,6 +289,7 @@ def generate_mock_data():
             "start_date": now,
             "end_date": now + timedelta(days=10),
             "assigned_technician_id": "tech-001",
+            "assigned_techs": ["tech-001", "tech-002", "tech-003"],
             "equipment_count": 36
         },
         {
@@ -228,27 +304,27 @@ def generate_mock_data():
             "start_date": now + timedelta(days=3),
             "end_date": now + timedelta(days=7),
             "assigned_technician_id": "tech-001",
+            "assigned_techs": ["tech-001", "tech-004"],
             "equipment_count": 8
         },
     ]
     
     # Mock Equipment for projects
     mock_equipment = [
-        # Project 1 equipment
         {"id": "eq-001", "salesforce_id": "a1E001", "project_id": "proj-001", "name": "AHU-01 Floor 1", "model": "Carrier 39M", "serial_number": "CR39M001", "equipment_type": "AHU", "location": "Floor 1 Mechanical Room", "status": "Active"},
         {"id": "eq-002", "salesforce_id": "a1E002", "project_id": "proj-001", "name": "AHU-02 Floor 2", "model": "Carrier 39M", "serial_number": "CR39M002", "equipment_type": "AHU", "location": "Floor 2 Mechanical Room", "status": "Active"},
         {"id": "eq-003", "salesforce_id": "a1E003", "project_id": "proj-001", "name": "RTU-01 Roof", "model": "Trane Voyager", "serial_number": "TV12345", "equipment_type": "RTU", "location": "Rooftop", "status": "Active"},
         {"id": "eq-004", "salesforce_id": "a1E004", "project_id": "proj-001", "name": "Chiller-01", "model": "York YCIV", "serial_number": "YK001", "equipment_type": "Chiller", "location": "Basement", "status": "Active"},
-        # Project 2 equipment
         {"id": "eq-005", "salesforce_id": "a1E005", "project_id": "proj-002", "name": "OR-AHU-01", "model": "Carrier 39MN", "serial_number": "CR39MN001", "equipment_type": "AHU", "location": "OR Suite 1", "status": "Active"},
         {"id": "eq-006", "salesforce_id": "a1E006", "project_id": "proj-002", "name": "ICU-AHU-01", "model": "Carrier 39MN", "serial_number": "CR39MN002", "equipment_type": "AHU", "location": "ICU", "status": "Active"},
-        # Project 3 equipment
         {"id": "eq-007", "salesforce_id": "a1E007", "project_id": "proj-003", "name": "Chiller-Main", "model": "Trane CVHF", "serial_number": "TCV001", "equipment_type": "Chiller", "location": "Central Plant", "status": "Active"},
         {"id": "eq-008", "salesforce_id": "a1E008", "project_id": "proj-003", "name": "Chiller-Backup", "model": "Trane CVHF", "serial_number": "TCV002", "equipment_type": "Chiller", "location": "Central Plant", "status": "Active"},
     ]
     
     return {
         "technician": mock_technician,
+        "team": mock_team,
+        "org_admin": mock_org,
         "projects": mock_projects,
         "equipment": mock_equipment,
     }
@@ -423,6 +499,167 @@ async def update_profile(profile_data: dict):
     # Merge with mock data for complete profile
     merged = {**MOCK_DATA["technician"], **update_data}
     return {"success": True, "profile": merged}
+
+
+# ============ Team Management Routes ============
+
+class ProjectAssignment(BaseModel):
+    project_id: str
+    tech_id: str
+
+@api_router.get("/team/my-techs")
+async def get_my_techs():
+    """Get technicians under current supervisor"""
+    team = MOCK_DATA.get("team", [])
+    # Enrich with project data
+    projects = MOCK_DATA.get("projects", [])
+    
+    enriched_team = []
+    for tech in team:
+        tech_copy = tech.copy()
+        # Count assigned projects
+        assigned = [p for p in projects if tech["id"] in p.get("assigned_techs", [])]
+        tech_copy["projects_count"] = len(assigned)
+        tech_copy["assigned_projects"] = [
+            {"id": p["id"], "name": p["name"], "status": p["status"], "client_name": p["client_name"]}
+            for p in assigned
+        ]
+        enriched_team.append(tech_copy)
+    
+    return {
+        "success": True,
+        "team": enriched_team,
+        "total": len(enriched_team),
+    }
+
+@api_router.get("/team/tech/{tech_id}")
+async def get_tech_profile(tech_id: str):
+    """Get a specific technician's profile (supervisor view)"""
+    team = MOCK_DATA.get("team", [])
+    tech = next((t for t in team if t["id"] == tech_id), None)
+    
+    if not tech:
+        raise HTTPException(status_code=404, detail="Technician not found")
+    
+    # Get assigned projects
+    projects = MOCK_DATA.get("projects", [])
+    assigned = [p for p in projects if tech_id in p.get("assigned_techs", [])]
+    
+    tech_profile = tech.copy()
+    tech_profile["assigned_projects"] = assigned
+    
+    return {
+        "success": True,
+        "technician": tech_profile,
+    }
+
+@api_router.get("/team/tech/{tech_id}/projects")
+async def get_tech_projects(tech_id: str):
+    """Get projects assigned to a specific technician"""
+    projects = MOCK_DATA.get("projects", [])
+    assigned = [p for p in projects if tech_id in p.get("assigned_techs", [])]
+    
+    return {
+        "success": True,
+        "projects": assigned,
+        "total": len(assigned),
+    }
+
+@api_router.post("/team/assign-project")
+async def assign_project(data: ProjectAssignment):
+    """Assign a project to a technician"""
+    projects = MOCK_DATA.get("projects", [])
+    project = next((p for p in projects if p["id"] == data.project_id), None)
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    team = MOCK_DATA.get("team", [])
+    tech = next((t for t in team if t["id"] == data.tech_id), None)
+    if not tech:
+        raise HTTPException(status_code=404, detail="Technician not found")
+    
+    if "assigned_techs" not in project:
+        project["assigned_techs"] = []
+    
+    if data.tech_id not in project["assigned_techs"]:
+        project["assigned_techs"].append(data.tech_id)
+    
+    return {
+        "success": True,
+        "message": f"Project '{project['name']}' assigned to {tech['full_name']}",
+        "project": project,
+    }
+
+@api_router.post("/team/unassign-project")
+async def unassign_project(data: ProjectAssignment):
+    """Remove a technician from a project"""
+    projects = MOCK_DATA.get("projects", [])
+    project = next((p for p in projects if p["id"] == data.project_id), None)
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if data.tech_id in project.get("assigned_techs", []):
+        project["assigned_techs"].remove(data.tech_id)
+    
+    return {
+        "success": True,
+        "message": f"Technician removed from project",
+        "project": project,
+    }
+
+@api_router.get("/team/org-chart")
+async def get_org_chart():
+    """Get organizational chart data"""
+    admin = MOCK_DATA.get("org_admin", {})
+    supervisor = MOCK_DATA.get("technician", {})
+    team = MOCK_DATA.get("team", [])
+    
+    org_chart = {
+        "id": admin.get("id", "admin-001"),
+        "name": admin.get("full_name", "Regional Director"),
+        "title": admin.get("title", "Regional Director"),
+        "role": "admin",
+        "avatar_color": admin.get("avatar_color", "#c5d93d"),
+        "children": [
+            {
+                "id": supervisor.get("id", "tech-001"),
+                "name": supervisor.get("full_name", "Supervisor"),
+                "title": supervisor.get("title", "Senior Field Supervisor"),
+                "role": "supervisor",
+                "avatar_color": "#3b82f6",
+                "is_current_user": True,
+                "children": [
+                    {
+                        "id": t["id"],
+                        "name": t["full_name"],
+                        "title": t["title"],
+                        "role": "technician",
+                        "avatar_color": t.get("avatar_color", "#94a3b8"),
+                        "status": t.get("status", "active"),
+                        "children": [],
+                    }
+                    for t in team
+                ],
+            }
+        ],
+    }
+    
+    return {
+        "success": True,
+        "org_chart": org_chart,
+    }
+
+@api_router.get("/team/all-projects")
+async def get_all_projects_for_assignment():
+    """Get all projects available for assignment"""
+    projects = MOCK_DATA.get("projects", [])
+    return {
+        "success": True,
+        "projects": projects,
+    }
+
 
 # ============ Media (Photos & Videos) ============
 

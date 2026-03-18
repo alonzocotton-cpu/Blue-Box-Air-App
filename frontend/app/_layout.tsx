@@ -34,6 +34,20 @@ export default function RootLayout() {
               presentation: 'card' 
             }} 
           />
+          <Stack.Screen 
+            name="team/tech-profile" 
+            options={{ 
+              headerShown: false,
+              presentation: 'card' 
+            }} 
+          />
+          <Stack.Screen 
+            name="team/org-chart" 
+            options={{ 
+              headerShown: false,
+              presentation: 'card' 
+            }} 
+          />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>
