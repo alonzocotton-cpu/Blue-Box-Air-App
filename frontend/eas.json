@@ -1,0 +1,53 @@
+{
+  "cli": {
+    "version": ">= 14.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "image": "macos-sequoia-15.4-xcode-26.0",
+        "simulator": true
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "image": "macos-sequoia-15.4-xcode-26.0"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "ios": {
+        "image": "macos-sequoia-15.4-xcode-26.0",
+        "autoIncrement": true
+      },
+      "android": {
+        "autoIncrement": true
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.blueboxair.com"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "",
+        "ascAppId": "",
+        "appleTeamId": ""
+      },
+      "android": {
+        "serviceAccountKeyPath": "",
+        "track": "production"
+      }
+    }
+  }
+}
